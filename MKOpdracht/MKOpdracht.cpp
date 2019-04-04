@@ -68,6 +68,7 @@ bool openAndReadFile(char*& path) {
 	}
 
 	return true;
+//bernd je suckt apenballen, wist je dat al?
 }
 
 
