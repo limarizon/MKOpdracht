@@ -1,21 +1,73 @@
-// MKOpdracht.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
-
-#include "pch.h"
+#include <stdio.h>
 #include <iostream>
 
-int main()
+//For reading files
+#include <fstream>
+
+//Simple data holder, +/- list
+#include <vector>
+
+struct Point {
+	double x;
+	double y;
+};
+
+struct CircleInfo {
+	Point center;
+	double radius;
+};
+
+struct InputInfo {
+	int algorithm;
+	int num_circles;
+	std::vector<CircleInfo> circles;
+};
+
+//This is a function prototype, to be able to use it later.
+bool openAndReadFile(char*& path);
+
+int main(int argc, char **argv)
 {
-    std::cout << "Hello World!\n"; 
+	//i=0 would be the executable itself, so we don't want it
+	for (auto i = 1; i < argc; i++)
+	{
+		char* path = argv[i]; //char* c is in this case a /0 terminated string
+		openAndReadFile(path);
+	}
 }
 
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
+bool openAndReadFile(char*& path) {
+	std::ifstream file;
+	file.open(path);
 
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
+	if (file.is_open()) {
+		int algorithm;
+		file >> algorithm;
+
+		int numCircles;
+		file >> numCircles;
+
+		std::cout << "Using algorithm " << algorithm << " on " << numCircles << " circles." << std::endl;
+
+		InputInfo inputInfo = { algorithm, numCircles, std::vector<CircleInfo>(numCircles) };
+
+		double x, y, r;
+		for (auto i = 0; i < numCircles; i++)
+		{
+			file >> x >> y >> r;
+			Point circleCenter = { x,y };
+			CircleInfo circleInfo = { circleCenter, r };
+			inputInfo.circles[i] = circleInfo;
+		}
+
+		std::cout << "Processed input:" << std::endl;
+		for (CircleInfo circleInfo : inputInfo.circles)
+		{
+			std::cout << "Center X: " << circleInfo.center.x << ", Center Y: " << circleInfo.center.y << ", Radius: " << circleInfo.radius << std::endl;
+		}
+	}
+
+	return true;
+}
+
+
