@@ -141,7 +141,7 @@ double distanceCalculate(Point p1, Point p2)
 
 void n_kwadraat_easy(InputInfo info)
 {
-	info.circles.push_back({ 6,{0.2, 0.4},0.1 });
+	//info.circles.push_back({ 6,{0.2, 0.4},0.1 });
 
 
 	for (Circle circle_1 : info.circles)
@@ -187,7 +187,7 @@ void n_kwadraat_easy(InputInfo info)
 					(distance + circle_2.radius + circle_1.radius)
 				);
 
-				if (roundf(distance*100000) / 100000 == roundf((circle_1.radius + circle_2.radius) * 100000) / 100000) {
+				if (roundf(distance*10000000) / 10000000 == roundf((circle_1.radius + circle_2.radius) * 10000000) / 10000000) {
 					a = distance;
 
 					Point intersection_middle = {
