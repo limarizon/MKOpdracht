@@ -169,12 +169,12 @@ void n_kwadraat_easy(InputInfo info)
 						continue;
 					}
 
-					if (circle_1.center.x > circle_2.center.x) {
-						Circle temp = circle_2;
-						circle_2 = circle_1;
-						circle_1 = temp;
-					}
-					distance = distanceCalculate(circle_1.center, circle_2.center);
+					//if (circle_1.center.x > circle_2.center.x) {
+					//	Circle temp = circle_2;
+					//	circle_2 = circle_1;
+					//	circle_1 = temp;
+					//}
+					//distance = distanceCalculate(circle_1.center, circle_2.center);
 
 					Point temp1 = { circle_1.center };
 					Point temp2 = {circle_2.center };
