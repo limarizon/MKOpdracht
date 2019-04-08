@@ -10,6 +10,7 @@
 //for kepeing circles
 #include <map>
 
+
 struct Point {
 	double x;
 	double y;
@@ -140,6 +141,9 @@ double distanceCalculate(Point p1, Point p2)
 
 void n_kwadraat_easy(InputInfo info)
 {
+	info.circles.push_back({ 6,{0.2, 0.4},0.1 });
+
+
 	for (Circle circle_1 : info.circles)
 	{
 		for (Circle circle_2 : info.circles)
@@ -149,65 +153,79 @@ void n_kwadraat_easy(InputInfo info)
 			}
 			else {
 				//we doen niet aan perfect overlappende circles
-				double distance = distanceCalculate(circle_1.center, circle_2.center);
-				if (distance <= circle_1.radius + circle_2.radius) {
 
-					bool alreadyHasIntersection = false;
-					for (IntersectingCircles intersection : intersectingCircles)
-					{
-						if (intersection.ID_1 == circle_2.ID && intersection.ID_2 == circle_1.ID) {
-							alreadyHasIntersection = true;
-							break;
-						}
-						else if (intersection.ID_1 == circle_1.ID && intersection.ID_2 == circle_2.ID) {
-							alreadyHasIntersection = true;
-							break;
-						}
+				double distance = distanceCalculate(circle_2.center, circle_1.center);
+				if (distance > circle_1.radius + circle_2.radius) {
+					continue;
+				}else if (distance < abs(circle_1.radius - circle_2.radius)) {
+					continue;
+				}
+
+				bool alreadyHasIntersection = false;
+				for (IntersectingCircles intersection : intersectingCircles)
+				{
+					if (intersection.ID_1 == circle_2.ID && intersection.ID_2 == circle_1.ID) {
+						alreadyHasIntersection = true;
+						break;
 					}
-
-					if (alreadyHasIntersection) {
-						continue;
+					else if (intersection.ID_1 == circle_1.ID && intersection.ID_2 == circle_2.ID) {
+						alreadyHasIntersection = true;
+						break;
 					}
+				}
 
-					//if (circle_1.center.x > circle_2.center.x) {
-					//	Circle temp = circle_2;
-					//	circle_2 = circle_1;
-					//	circle_1 = temp;
-					//}
-					//distance = distanceCalculate(circle_1.center, circle_2.center);
+				if (alreadyHasIntersection) {
+					continue;
+				}
 
-					Point temp1 = { circle_1.center };
-					Point temp2 = {circle_2.center };
+				//PSSST http://paulbourke.net/geometry/circlesphere/
+				double x1 = (pow(distance, 2) - pow(circle_2.radius, 2) + pow(circle_1.radius, 2)) / (2 * distance);
+				double a = (1 / distance) * sqrt(
+					(-distance + circle_2.radius - circle_1.radius)*
+					(-distance - circle_2.radius + circle_1.radius)*
+					(-distance + circle_2.radius + circle_1.radius)*
+					(distance + circle_2.radius + circle_1.radius)
+				);
 
-					//PSSST http://paulbourke.net/geometry/circlesphere/
-					double x1 = (pow(distance, 2) - pow(circle_2.radius, 2) + pow(circle_1.radius, 2)) / (2 * distance);
-					double a = (1 / distance) * sqrt(
-						(-distance + circle_2.radius - circle_1.radius)*
-						(-distance - circle_2.radius + circle_1.radius)*
-						(-distance + circle_2.radius + circle_1.radius)*
-						(distance + circle_2.radius + circle_1.radius)
-					);
+				if (roundf(distance*100000) / 100000 == roundf((circle_1.radius + circle_2.radius) * 100000) / 100000) {
+					a = distance;
 
 					Point intersection_middle = {
-						circle_1.center.x + x1*(circle_2.center.x - circle_1.center.x) / distance,	//X coordinate
+						circle_1.center.x + x1 * (circle_2.center.x - circle_1.center.x) / distance,	//X coordinate
 						circle_1.center.y + x1 * (circle_2.center.y - circle_1.center.y) / distance	//Y coordinate
 					};
 
 
 					Point intersection_point1 = {
-						intersection_middle.x + (a/2) * (circle_2.center.y - circle_1.center.y) / distance,
+						intersection_middle.x + (a / 2) * (circle_2.center.y - circle_1.center.y) / distance,
 						intersection_middle.y - (a / 2) * (circle_2.center.x - circle_1.center.x) / distance
-					};
-					Point intersection_point2 = {
-						intersection_middle.x - (a / 2) * (circle_2.center.y - circle_1.center.y) / distance,
-						intersection_middle.y + (a / 2) * (circle_2.center.x - circle_1.center.x) / distance
 					};
 
 					intersectingCircles.push_back({ circle_1.ID, circle_2.ID });
 
 					std::cout << "Intersection X, Y: " << intersection_point1.x << "," << intersection_point1.y << std::endl;
-					std::cout << "Intersection X, Y: " << intersection_point2.x << "," << intersection_point2.y << std::endl;
+					break;
 				}
+
+				Point intersection_middle = {
+					circle_1.center.x + x1*(circle_2.center.x - circle_1.center.x) / distance,	//X coordinate
+					circle_1.center.y + x1 * (circle_2.center.y - circle_1.center.y) / distance	//Y coordinate
+				};
+
+
+				Point intersection_point1 = {
+					intersection_middle.x + (a/2) * (circle_2.center.y - circle_1.center.y) / distance,
+					intersection_middle.y - (a / 2) * (circle_2.center.x - circle_1.center.x) / distance
+				};
+				Point intersection_point2 = {
+					intersection_middle.x - (a / 2) * (circle_2.center.y - circle_1.center.y) / distance,
+					intersection_middle.y + (a / 2) * (circle_2.center.x - circle_1.center.x) / distance
+				};
+
+				intersectingCircles.push_back({ circle_1.ID, circle_2.ID });
+
+				std::cout << "Intersection X, Y: " << intersection_point1.x << "," << intersection_point1.y << std::endl;
+				std::cout << "Intersection X, Y: " << intersection_point2.x << "," << intersection_point2.y << std::endl;
 
 			}
 		}
