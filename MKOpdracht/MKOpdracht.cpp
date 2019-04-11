@@ -9,11 +9,16 @@
 
 //for kepeing circles
 #include <map>
+#include <set>
 
 //For measuring time
 #include <chrono>
 
 #include <algorithm>
+
+#ifdef _DEBUG
+#include <random>
+#endif
 
 struct Point {
 	double x;
@@ -33,6 +38,7 @@ struct Circle {
 	float leftX;
 	float rightX;
 	bool bIsActive = false;
+	std::set<int> intersectsWith;
 
 	bool operator==(const Circle& c2)
 	{
@@ -63,9 +69,8 @@ struct IntersectingCircles {
 
 InputInfo input_circles;
 
-std::vector<IntersectingCircles> intersectingCircles; //om redundantie tegen te gaan bij hjet controleren van snijdende cirkels eerste alg.
-
 std::multimap<float, Circle*> circleEventPoints;
+std::multimap<float, Circle*> activeCirclesTest;
 std::vector<Circle*> activeCircleVector;
 std::vector<Point> intersectionPoints;
 
@@ -75,7 +80,7 @@ std::chrono::nanoseconds nanoseconds;
 //This is a function prototype, to be able to use it later.
 InputInfo openAndReadFile(char*& path);
 double distanceCalculate(Point p1, Point p2);
-void calculateIntersectionPoints(Circle c1, Circle c2, std::vector<Point> &intersectionPoints, std::vector<IntersectingCircles> &intersectingCircles);
+void calculateIntersectionPoints(Circle& c1, Circle& c2, std::vector<Point> &intersectionPoints);
 
 void n_kwadraat_easy(InputInfo ii);
 void n_kwadraat_sweepline(InputInfo ii);
@@ -109,13 +114,22 @@ int main(int argc, char **argv)
 
 
 #ifdef _DEBUG
+	//for (Point p : intersectionPoints)
+	//{
+	//	std::cout << "Intersection X, Y: " << p.x << "," << p.y << std::endl;
+	//}
+
+	std::cout << "ms: " << milliseconds.count() << std::endl;
+	std::cout << "Found: " << intersectionPoints.size() << " intersections" << std::endl;
+
+#else
 	for (Point p : intersectionPoints)
 	{
 		std::cout << "Intersection X, Y: " << p.x << "," << p.y << std::endl;
 	}
 
-	std::cout << nanoseconds.count() << std::endl;
-
+	std::cout << "ms: " << milliseconds.count() << std::endl;
+	std::cout << "Found: " << intersectionPoints.size() << " intersections" << std::endl;
 #endif // _DEBUG
 
 
@@ -144,17 +158,36 @@ InputInfo openAndReadFile(char*& path) {
 		{
 			file >> x >> y >> r;
 			Point circleCenter = { x,y };
-			Circle circleInfo = { i, circleCenter, r,x-r,x+r};
+			Circle circleInfo = { i, circleCenter, r,x - r,x + r };
 			inputInfo.circles[i] = circleInfo;
-			circleEventPoints.insert(std::pair<float,Circle*>(circleInfo.leftX,&inputInfo.circles[i]));
+			circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.leftX, &inputInfo.circles[i]));
 			circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.rightX, &inputInfo.circles[i]));
 		}
 
-		std::cout << "Processed input:" << std::endl;
-		for (Circle circleInfo : inputInfo.circles)
+#ifdef _DEBUG
+		int extraCircles = 10000;
+		int region = 100;
+		int maxRadius = 5;
+		inputInfo.circles.resize(extraCircles + inputInfo.num_circles);
+
+		for (auto i = inputInfo.num_circles; i < extraCircles + inputInfo.num_circles; i++)
 		{
-			std::cout << "Center X: " << circleInfo.center.x << ", Center Y: " << circleInfo.center.y << ", Radius: " << circleInfo.radius << std::endl;
+			x = rand() % region;
+			y = rand() % region;
+			r = rand() % maxRadius + 1;
+			Point circleCenter = { x,y };
+			Circle circleInfo = { i, circleCenter, r,x - r,x + r };
+			inputInfo.circles[i] = circleInfo;
+			circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.leftX, &inputInfo.circles[i]));
+			circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.rightX, &inputInfo.circles[i]));
 		}
+#endif
+
+		std::cout << "Processed input:" << std::endl;
+		//for (Circle circleInfo : inputInfo.circles)
+		//{
+		//	std::cout << "Center X: " << circleInfo.center.x << ", Center Y: " << circleInfo.center.y << ", Radius: " << circleInfo.radius << std::endl;
+		//}
 
 	}
 
@@ -181,8 +214,12 @@ double distanceCalculate(Point p1, Point p2)
 	return dist;
 }
 
-void calculateIntersectionPoints(Circle circle_1, Circle circle_2, std::vector<Point>& intersectionPoints, std::vector<IntersectingCircles>& intersectingCircles)
+void calculateIntersectionPoints(Circle& circle_1, Circle& circle_2, std::vector<Point>& intersectionPoints)
 {
+	if (circle_1.center.x == circle_2.center.x && circle_1.center.y == circle_2.center.y && circle_1.radius == circle_2.radius) {
+		return;
+	}
+
 	double distance = distanceCalculate(circle_2.center, circle_1.center);
 
 	if (distance > circle_1.radius + circle_2.radius) {
@@ -193,13 +230,9 @@ void calculateIntersectionPoints(Circle circle_1, Circle circle_2, std::vector<P
 	}
 
 	bool alreadyHasIntersection = false;
-	for (IntersectingCircles intersection : intersectingCircles)
+	for (int ID : circle_1.intersectsWith)
 	{
-		if (intersection.ID_1 == circle_2.ID && intersection.ID_2 == circle_1.ID) {
-			alreadyHasIntersection = true;
-			break;
-		}
-		else if (intersection.ID_1 == circle_1.ID && intersection.ID_2 == circle_2.ID) {
+		if (ID == circle_2.ID) {
 			alreadyHasIntersection = true;
 			break;
 		}
@@ -208,6 +241,7 @@ void calculateIntersectionPoints(Circle circle_1, Circle circle_2, std::vector<P
 	if (alreadyHasIntersection) {
 		return;
 	}
+
 
 	//PSSST http://paulbourke.net/geometry/circlesphere/
 	double x1 = (pow(distance, 2) - pow(circle_2.radius, 2) + pow(circle_1.radius, 2)) / (2 * distance);
@@ -232,9 +266,10 @@ void calculateIntersectionPoints(Circle circle_1, Circle circle_2, std::vector<P
 			intersection_middle.y - (a / 2) * (circle_2.center.x - circle_1.center.x) / distance
 		};
 
-		intersectingCircles.push_back({ circle_1.ID, circle_2.ID });
-
+		circle_1.intersectsWith.insert(circle_2.ID);
+		circle_2.intersectsWith.insert(circle_1.ID);
 		intersectionPoints.push_back(intersection_point1);
+
 		//std::cout << "Intersection X, Y: " << intersection_point1.x << "," << intersection_point1.y << std::endl;
 		return;
 	}
@@ -254,8 +289,8 @@ void calculateIntersectionPoints(Circle circle_1, Circle circle_2, std::vector<P
 		intersection_middle.y + (a / 2) * (circle_2.center.x - circle_1.center.x) / distance
 	};
 
-	intersectingCircles.push_back({ circle_1.ID, circle_2.ID });
-
+	circle_1.intersectsWith.insert(circle_2.ID);
+	circle_2.intersectsWith.insert(circle_1.ID);
 	intersectionPoints.push_back(intersection_point1);
 	intersectionPoints.push_back(intersection_point2);
 	//std::cout << "Intersection X, Y: " << intersection_point1.x << "," << intersection_point1.y << std::endl;
@@ -267,41 +302,16 @@ void n_kwadraat_easy(InputInfo info)
 	//info.circles.push_back({ 6,{0.2, 0.4},0.1 });
 	auto start = std::chrono::system_clock::now();
 
-	for (Circle circle_1 : info.circles)
+	for (auto i = 0; i < info.circles.size(); i++)
 	{
-		for (Circle circle_2 : info.circles)
+		for (auto j = 0; j < info.circles.size(); j++)
 		{
-			if (circle_1 == circle_2) {
+
+			if (i == j) {
 				continue;
 			}
 			else {
-				//we doen niet aan perfect overlappende circles
-
-				//double distance = distanceCalculate(circle_2.center, circle_1.center);
-				//if (distance > circle_1.radius + circle_2.radius) {
-				//	continue;
-				//}else if (distance < abs(circle_1.radius - circle_2.radius)) {
-				//	continue;
-				//}
-
-				//bool alreadyHasIntersection = false;
-				//for (IntersectingCircles intersection : intersectingCircles)
-				//{
-				//	if (intersection.ID_1 == circle_2.ID && intersection.ID_2 == circle_1.ID) {
-				//		alreadyHasIntersection = true;
-				//		break;
-				//	}
-				//	else if (intersection.ID_1 == circle_1.ID && intersection.ID_2 == circle_2.ID) {
-				//		alreadyHasIntersection = true;
-				//		break;
-				//	}
-				//}
-
-				//if (alreadyHasIntersection) {
-				//	continue;
-				//}
-				calculateIntersectionPoints(circle_1, circle_2, intersectionPoints, intersectingCircles);
-				
+				calculateIntersectionPoints(info.circles[i], info.circles[j], intersectionPoints);
 			}
 		}
 	}
@@ -320,17 +330,24 @@ void n_kwadraat_sweepline(InputInfo info) {
 		Circle* circle = it->second;
 		if (!circle->bIsActive) {
 			circle->bIsActive = true;
-			
+
 
 			for (Circle * activeCircle : activeCircleVector)
 			{
-				calculateIntersectionPoints(*circle, *activeCircle, intersectionPoints, intersectingCircles);
+				calculateIntersectionPoints(*circle, *activeCircle, intersectionPoints);
 			}
-			
+
+			//for (std::pair<int, Circle*> activeCircle : activeCirclesTest)
+			//{
+			//	calculateIntersectionPoints(*circle, *(activeCircle.second), intersectionPoints);
+			//}
+
 
 			activeCircleVector.push_back(it->second);
+			//activeCirclesTest.insert(std::pair<float, Circle*>(circle->rightX, circle));
 		}
 		else {
+			//activeCirclesTest.erase(circle->rightX);
 			activeCircleVector.erase(std::remove(activeCircleVector.begin(), activeCircleVector.end(), circle), activeCircleVector.end());
 		}
 
