@@ -55,6 +55,14 @@ struct InputInfo {
 	int algorithm;
 	int num_circles;
 	std::vector<Circle> circles;
+
+	std::multimap<float, Circle*> circleEventPoints;
+	std::multimap<float, Circle*> activeCirclesTest;
+	std::vector<Circle*> activeCircleVector;
+	std::vector<Point> intersectionPoints;
+
+	std::chrono::milliseconds milliseconds;
+	std::chrono::nanoseconds nanoseconds;
 };
 
 struct OutputInfo {
@@ -69,21 +77,22 @@ struct IntersectingCircles {
 
 InputInfo input_circles;
 
-std::multimap<float, Circle*> circleEventPoints;
-std::multimap<float, Circle*> activeCirclesTest;
-std::vector<Circle*> activeCircleVector;
-std::vector<Point> intersectionPoints;
+#ifdef _DEBUG
+InputInfo test_input_circles_1;
+InputInfo test_input_circles_2;
+InputInfo test_input_circles_3;
+#endif // _DEBUG
 
-std::chrono::milliseconds milliseconds;
-std::chrono::nanoseconds nanoseconds;
+
+
 
 //This is a function prototype, to be able to use it later.
 InputInfo openAndReadFile(char*& path);
 double distanceCalculate(Point p1, Point p2);
 void calculateIntersectionPoints(Circle& c1, Circle& c2, std::vector<Point> &intersectionPoints);
 
-void n_kwadraat_easy(InputInfo ii);
-void n_kwadraat_sweepline(InputInfo ii);
+void n_kwadraat_easy(InputInfo& ii);
+void n_kwadraat_sweepline(InputInfo& ii);
 //void n_log_n_sweepline(InputInfo ii);
 
 int main(int argc, char **argv)
@@ -118,18 +127,48 @@ int main(int argc, char **argv)
 	//{
 	//	std::cout << "Intersection X, Y: " << p.x << "," << p.y << std::endl;
 	//}
+	std::cout << "Input file: " << std::endl;
+	std::cout << "ms: " << input_circles.milliseconds.count() << std::endl;
+	std::cout << "Found: " << input_circles.intersectionPoints.size() << " intersections" << std::endl << std::endl;
 
-	std::cout << "ms: " << milliseconds.count() << std::endl;
-	std::cout << "Found: " << intersectionPoints.size() << " intersections" << std::endl;
+	n_kwadraat_easy(test_input_circles_1);
+	std::cout << "Algorithm 1, Test circles: " << test_input_circles_1.num_circles << std::endl;
+	std::cout << "ms: " << test_input_circles_1.milliseconds.count() << std::endl;
+	std::cout << "Found: " << test_input_circles_1.intersectionPoints.size() << " intersections" << std::endl << std::endl;
+
+	n_kwadraat_sweepline(test_input_circles_2);
+	std::cout << "Algorithm 2, Test circles: " << test_input_circles_2.num_circles << std::endl;
+	std::cout << "ms: " << test_input_circles_2.milliseconds.count() << std::endl;
+	std::cout << "Found: " << test_input_circles_2.intersectionPoints.size() << " intersections" << std::endl << std::endl;
+
+	double x1 =0,x2=0,x3 = 0;
+	double y1 = 0,y2 = 0,y3 = 0;
+	for (Point p1 : test_input_circles_1.intersectionPoints)
+	{
+		x1 += pow(p1.x,2);
+		y1 += pow(p1.y,2);
+	}
+
+	for (Point p2 : test_input_circles_2.intersectionPoints)
+	{
+		x2 += pow(p2.x,2);
+		y2 += pow(p2.y,2);
+	}
+
+	double percentage = (sqrt(x1) / sqrt(x2)) * 100;
+	percentage += (sqrt(y1) / sqrt(y2)) * 100;
+	percentage /= 2;
+
+	std::cout << percentage << "% the coordinates match" << std::endl;
 
 #else
-	for (Point p : intersectionPoints)
+	for (Point p : input_circles.intersectionPoints)
 	{
 		std::cout << "Intersection X, Y: " << p.x << "," << p.y << std::endl;
 	}
 
-	std::cout << "ms: " << milliseconds.count() << std::endl;
-	std::cout << "Found: " << intersectionPoints.size() << " intersections" << std::endl;
+	std::cout << "ms: " << input_circles.milliseconds.count() << std::endl;
+	std::cout << "Found: " << input_circles.intersectionPoints.size() << " intersections" << std::endl;
 #endif // _DEBUG
 
 
@@ -160,26 +199,37 @@ InputInfo openAndReadFile(char*& path) {
 			Point circleCenter = { x,y };
 			Circle circleInfo = { i, circleCenter, r,x - r,x + r };
 			inputInfo.circles[i] = circleInfo;
-			circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.leftX, &inputInfo.circles[i]));
-			circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.rightX, &inputInfo.circles[i]));
+			inputInfo.circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.leftX, &inputInfo.circles[i]));
+			inputInfo.circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.rightX, &inputInfo.circles[i]));
 		}
 
 #ifdef _DEBUG
-		int extraCircles = 10000;
+		int extraCircles = 800;
 		int region = 100;
-		int maxRadius = 5;
-		inputInfo.circles.resize(extraCircles + inputInfo.num_circles);
+		int maxRadius = 20;
 
-		for (auto i = inputInfo.num_circles; i < extraCircles + inputInfo.num_circles; i++)
+		test_input_circles_1 = { 1, extraCircles, std::vector<Circle>(extraCircles) };
+		test_input_circles_2 = { 2, extraCircles, std::vector<Circle>(extraCircles) };
+		test_input_circles_3 = { 3, extraCircles, std::vector<Circle>(extraCircles) };
+
+		for (auto i = 0; i < extraCircles; i++)
 		{
-			x = rand() % region;
-			y = rand() % region;
-			r = rand() % maxRadius + 1;
+			x = rand() % region / (float)region;
+			y = rand() % region / (float)region;
+			r = (rand() % maxRadius + 1) / (float)(maxRadius + 1) / 20.0f;
 			Point circleCenter = { x,y };
 			Circle circleInfo = { i, circleCenter, r,x - r,x + r };
-			inputInfo.circles[i] = circleInfo;
-			circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.leftX, &inputInfo.circles[i]));
-			circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.rightX, &inputInfo.circles[i]));
+			test_input_circles_1.circles[i] = { circleInfo };
+			test_input_circles_1.circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.leftX, &test_input_circles_1.circles[i]));
+			test_input_circles_1.circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.rightX, &test_input_circles_1.circles[i]));
+
+			test_input_circles_2.circles[i] = { circleInfo };
+			test_input_circles_2.circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.leftX, &test_input_circles_2.circles[i]));
+			test_input_circles_2.circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.rightX, &test_input_circles_2.circles[i]));
+
+			test_input_circles_3.circles[i] = { circleInfo };
+			test_input_circles_3.circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.leftX, &test_input_circles_3.circles[i]));
+			test_input_circles_3.circleEventPoints.insert(std::pair<float, Circle*>(circleInfo.rightX, &test_input_circles_3.circles[i]));
 		}
 #endif
 
@@ -297,7 +347,7 @@ void calculateIntersectionPoints(Circle& circle_1, Circle& circle_2, std::vector
 	//std::cout << "Intersection X, Y: " << intersection_point2.x << "," << intersection_point2.y << std::endl;
 }
 
-void n_kwadraat_easy(InputInfo info)
+void n_kwadraat_easy(InputInfo& info)
 {
 	//info.circles.push_back({ 6,{0.2, 0.4},0.1 });
 	auto start = std::chrono::system_clock::now();
@@ -311,20 +361,20 @@ void n_kwadraat_easy(InputInfo info)
 				continue;
 			}
 			else {
-				calculateIntersectionPoints(info.circles[i], info.circles[j], intersectionPoints);
+				calculateIntersectionPoints(info.circles[i], info.circles[j], info.intersectionPoints);
 			}
 		}
 	}
 
 	auto end = std::chrono::system_clock::now();
-	milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-	nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+	info.milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+	info.nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
 }
 
-void n_kwadraat_sweepline(InputInfo info) {
+void n_kwadraat_sweepline(InputInfo& info) {
 	auto start = std::chrono::system_clock::now();
 
-	for (auto it = circleEventPoints.begin(); it != circleEventPoints.end(); ++it)
+	for (auto it = info.circleEventPoints.begin(); it != info.circleEventPoints.end(); ++it)
 	{
 		//std::cout << it->second.leftX << "    " << it->second.rightX << "  ID: " << it->second.ID << std::endl;
 		Circle* circle = it->second;
@@ -332,9 +382,9 @@ void n_kwadraat_sweepline(InputInfo info) {
 			circle->bIsActive = true;
 
 
-			for (Circle * activeCircle : activeCircleVector)
+			for (Circle * activeCircle : info.activeCircleVector)
 			{
-				calculateIntersectionPoints(*circle, *activeCircle, intersectionPoints);
+				calculateIntersectionPoints(*circle, *activeCircle, info.intersectionPoints);
 			}
 
 			//for (std::pair<int, Circle*> activeCircle : activeCirclesTest)
@@ -343,12 +393,12 @@ void n_kwadraat_sweepline(InputInfo info) {
 			//}
 
 
-			activeCircleVector.push_back(it->second);
+			info.activeCircleVector.push_back(it->second);
 			//activeCirclesTest.insert(std::pair<float, Circle*>(circle->rightX, circle));
 		}
 		else {
 			//activeCirclesTest.erase(circle->rightX);
-			activeCircleVector.erase(std::remove(activeCircleVector.begin(), activeCircleVector.end(), circle), activeCircleVector.end());
+			info.activeCircleVector.erase(std::remove(info.activeCircleVector.begin(), info.activeCircleVector.end(), circle), info.activeCircleVector.end());
 		}
 
 
@@ -356,14 +406,6 @@ void n_kwadraat_sweepline(InputInfo info) {
 	}
 
 	auto end = std::chrono::system_clock::now();
-	milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-	nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+	info.milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+	info.nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
 }
-
-class Iets {
-
-};
-
-class IetsAnders {
-
-};
