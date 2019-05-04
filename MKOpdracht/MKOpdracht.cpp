@@ -138,6 +138,7 @@ struct InputInfo {
 	std::multimap<double, Point*> circleEventPointsLogN;
 	//std::multimap<Point, std::vector<Point>, testComp> testQueue;
 	std::multiset<Point, testComp> testQueue;
+	//std::unordered_multiset<Point, testComp> testQueue;
 
 	std::multimap<double, HalfCircle*> halfCircles;
 
@@ -179,7 +180,7 @@ InputInfo test_input_circles_4;
 //This is a function prototype, to be able to use it later.
 InputInfo openAndReadFile(char*& path);
 double distanceCalculate(Point p1, Point p2);
-void calculateIntersectionPoints(struct Circle& c1, struct Circle& c2, std::unordered_set<Point, MyHashFunction> &intersectionPoints, bool optimize = true);
+void calculateIntersectionPoints(struct Circle& c1, struct Circle& c2, std::unordered_set<Point, MyHashFunction>* intersectionPoints, bool optimize = true);
 void calculateIntersectionPoints(struct HalfCircle& c1, struct HalfCircle& c2, InputInfo &info, double currentX);
 
 void n_kwadraat_easy(InputInfo& ii);
@@ -298,6 +299,10 @@ int main(int argc, char **argv)
 	return 0;
 }
 
+double doubleRand() {
+	return double(rand()) / (double(RAND_MAX) + 1.0);
+}
+
 InputInfo openAndReadFile(char*& path) {
 	std::ifstream file;
 	file.open(path);
@@ -353,7 +358,7 @@ InputInfo openAndReadFile(char*& path) {
 		//int region = 250;
 		//int maxRadius = 20;
 
-		int extraCircles = 17;
+		int extraCircles = 15;
 		int region = 10;
 		int maxRadius = 20;
 
@@ -370,6 +375,19 @@ InputInfo openAndReadFile(char*& path) {
 			x = rand() % region;
 			y = rand() % region;
 			r = rand() % maxRadius / 5.0 + 0.5;
+
+			x *= (1.0 + doubleRand());
+			y *= (1.0 + doubleRand());
+			x = roundf(x * precision) / precision;
+			y = roundf(y * precision) / precision;
+
+			for (auto circle : test_input_circles_1.circles) {
+				if (roundf(circle.radius * precision) / precision == roundf(r * precision) / precision && circle.center.x == x && circle.center.y == y) {
+					continue;
+				}
+			}
+			
+
 			Point circleCenter = { x,y };
 			Circle circleInfo = { i, circleCenter, r,x - r,x + r };
 			//test_input_circles_1.circles[i] = { circleInfo };
@@ -575,7 +593,19 @@ double distanceCalculate(Point p1, Point p2)
 	return dist;
 }
 
-void calculateIntersectionPoints(struct Circle& circle_1, struct Circle& circle_2, std::unordered_set<Point, MyHashFunction>& intersectionPoints, bool optimize)
+double distanceCalculate(Point *p1, Point *p2)
+{
+	double x = p1->x - p2->x;
+	double y = p1->y - p2->y;
+	double dist;
+
+	dist = pow(x, 2) + pow(y, 2);
+	dist = sqrt(dist);
+
+	return dist;
+}
+
+void calculateIntersectionPoints(struct Circle& circle_1, struct Circle& circle_2, std::unordered_set<Point, MyHashFunction>* intersectionPoints, bool optimize)
 {
 	if (circle_1.center.x == circle_2.center.x && circle_1.center.y == circle_2.center.y && circle_1.radius == circle_2.radius) {
 		return;
@@ -634,7 +664,7 @@ void calculateIntersectionPoints(struct Circle& circle_1, struct Circle& circle_
 
 		intersection_point1.isRaakpunt = true;
 		intersection_point1.isSnijpunt = true;
-		intersectionPoints.insert(intersection_point1);
+		intersectionPoints->insert(intersection_point1);
 		//std::cout << "Intersection X, Y: " << intersection_point1.x << "," << intersection_point1.y << std::endl;
 		return;
 	}
@@ -703,18 +733,291 @@ void calculateIntersectionPoints(struct Circle& circle_1, struct Circle& circle_
 
 	circle_1.intersectsWith.insert(circle_2.ID);
 	circle_2.intersectsWith.insert(circle_1.ID);
-	intersectionPoints.insert(intersection_point1);
+	intersectionPoints->insert(intersection_point1);
 	if (!dontAdd2) {
-		intersectionPoints.insert(intersection_point2);
+		intersectionPoints->insert(intersection_point2);
 	}
 	//std::cout << "Intersection X, Y: " << intersection_point1.x << "," << intersection_point1.y << std::endl;
 	//std::cout << "Intersection X, Y: " << intersection_point2.x << "," << intersection_point2.y << std::endl;
 }
 
-void calculateIntersectionPoints(struct HalfCircle& c1, struct HalfCircle& c2, InputInfo &info, double currentX) {
-	std::unordered_set<Point, MyHashFunction> temp;
-	calculateIntersectionPoints(*c1.parent, *c2.parent, temp,false);
-	std::vector<Point> keepPoints;
+void calculateIntersectionPoints(struct Circle* circle_1, struct Circle* circle_2, std::unordered_set<Point, MyHashFunction>* intersectionPoints, bool optimize)
+{
+	if (circle_1->center.x == circle_2->center.x && circle_1->center.y == circle_2->center.y && circle_1->radius == circle_2->radius) {
+		return;
+	}
+
+	double distance = distanceCalculate(circle_2->center, circle_1->center);
+
+	if (distance > circle_1->radius + circle_2->radius) {
+		return;
+	}
+	else if (distance < abs(circle_1->radius - circle_2->radius)) {
+		return;
+	}
+
+	if (optimize) {
+		bool alreadyHasIntersection = false;
+		for (int ID : circle_1->intersectsWith)
+		{
+			if (ID == circle_2->ID) {
+				alreadyHasIntersection = true;
+				break;
+			}
+		}
+
+		if (alreadyHasIntersection) {
+			return;
+		}
+	}
+
+	//PSSST http://paulbourke.net/geometry/circlesphere/
+	double x1 = (pow(distance, 2) - pow(circle_2->radius, 2) + pow(circle_1->radius, 2)) / (2 * distance);
+	double a = (1 / distance) * sqrt(
+		(-distance + circle_2->radius - circle_1->radius)*
+		(-distance - circle_2->radius + circle_1->radius)*
+		(-distance + circle_2->radius + circle_1->radius)*
+		(distance + circle_2->radius + circle_1->radius)
+	);
+
+	if (roundf(distance * precision) / precision == roundf((circle_1->radius + circle_2->radius) * precision) / precision) {
+		a = distance;
+
+		Point intersection_middle = {
+			circle_1->center.x + x1 * (circle_2->center.x - circle_1->center.x) / distance,	//X coordinate
+			circle_1->center.y + x1 * (circle_2->center.y - circle_1->center.y) / distance	//Y coordinate
+		};
+
+
+		Point intersection_point1 = {
+			/*intersection_middle.x + (a / 2) * (circle_2->center.y - circle_1->center.y) / distance,
+			intersection_middle.y - (a / 2) * (circle_2->center.x - circle_1->center.x) / distance*/
+			intersection_middle
+		};
+
+		circle_1->intersectsWith.insert(circle_2->ID);
+		circle_2->intersectsWith.insert(circle_1->ID);
+
+		intersection_point1.isRaakpunt = true;
+		intersection_point1.isSnijpunt = true;
+		intersectionPoints->insert(intersection_point1);
+		//std::cout << "Intersection X, Y: " << intersection_point1.x << "," << intersection_point1.y << std::endl;
+		return;
+	}
+
+	Point intersection_middle = {
+		circle_1->center.x + x1 * (circle_2->center.x - circle_1->center.x) / distance,	//X coordinate
+		circle_1->center.y + x1 * (circle_2->center.y - circle_1->center.y) / distance	//Y coordinate
+	};
+
+
+	Point intersection_point1 = {
+		intersection_middle.x + (a / 2) * (circle_2->center.y - circle_1->center.y) / distance,
+		intersection_middle.y - (a / 2) * (circle_2->center.x - circle_1->center.x) / distance
+	};
+	Point intersection_point2 = {
+		intersection_middle.x - (a / 2) * (circle_2->center.y - circle_1->center.y) / distance,
+		intersection_middle.y + (a / 2) * (circle_2->center.x - circle_1->center.x) / distance
+	};
+	intersection_point1.isSnijpunt = true;
+	intersection_point2.isSnijpunt = true;
+	if (circle_1->ID == 944 && circle_2->ID == 506 || circle_1->ID == 506 && circle_2->ID == 944) {
+		int YOLO = -1;
+	}
+
+	if (intersection_point1.x >= circle_1->rightX) {
+		intersection_point1.x = circle_1->rightX - 1.0f / precision;
+	}
+	if (intersection_point1.x >= circle_2->rightX) {
+		intersection_point1.x = circle_2->rightX - 1.0f / precision;
+	}
+	if (intersection_point2.x >= circle_1->rightX) {
+		intersection_point2.x = circle_1->rightX - 1.0f / precision;
+	}
+	if (intersection_point2.x >= circle_2->rightX) {
+		intersection_point2.x = circle_2->rightX - 1.0f / precision;
+	}
+
+	bool dontAdd2 = false;
+	//if (isnan(intersection_point1.x) || isnan(intersection_point1.x)) {
+	if ((isnan(intersection_point1.x) || isnan(intersection_point1.x)) ||
+		(roundf(intersection_point1.y * precision) / precision == roundf(circle_1->center.y*precision) / precision &&
+		(roundf(intersection_point1.y * precision) / precision == roundf(circle_2->center.y*precision) / precision))) {
+		if (roundf(circle_1->leftX * precision) / precision == roundf(circle_2->leftX * precision) / precision) {
+			intersection_point1.x = circle_1->leftX - 1.0f / precision;
+		}
+		if (roundf(circle_1->leftX * precision) / precision == roundf(circle_2->rightX * precision) / precision) {
+			intersection_point1.x = circle_1->leftX - 1.0f / precision;
+		}
+		if (roundf(circle_1->rightX * precision) / precision == roundf(circle_2->leftX * precision) / precision) {
+			intersection_point1.x = circle_1->rightX - 1.0f / precision;
+		}
+		if (roundf(circle_1->rightX * precision) / precision == roundf(circle_2->rightX * precision) / precision) {
+			intersection_point1.x = circle_1->rightX - 1.0f / precision;
+		}
+		if (roundf(circle_1->rightX * precision) / precision == roundf(circle_2->rightX * precision) / precision &&
+			roundf(circle_1->leftX * precision) / precision == roundf(circle_2->leftX * precision) / precision) {
+			int YOLO = -1;
+		}
+		if (circle_1->center.y != circle_2->center.y) {
+			int YOLO = -1;
+		}
+		intersection_point1.y = circle_1->center.y - 1.0f / precision;
+		intersection_point1.isRaakpunt = true;
+		dontAdd2 = true;
+	}
+
+	circle_1->intersectsWith.insert(circle_2->ID);
+	circle_2->intersectsWith.insert(circle_1->ID);
+	intersectionPoints->insert(intersection_point1);
+	if (!dontAdd2) {
+		intersectionPoints->insert(intersection_point2);
+	}
+	//std::cout << "Intersection X, Y: " << intersection_point1.x << "," << intersection_point1.y << std::endl;
+	//std::cout << "Intersection X, Y: " << intersection_point2.x << "," << intersection_point2.y << std::endl;
+}
+
+void calculateIntersectionPoints(struct Circle* circle_1, struct Circle* circle_2, std::vector<Point>* intersectionPoints, bool optimize)
+{
+	if (circle_1->center.x == circle_2->center.x && circle_1->center.y == circle_2->center.y && circle_1->radius == circle_2->radius) {
+		return;
+	}
+
+	double distance = distanceCalculate(circle_2->center, circle_1->center);
+
+	if (distance > circle_1->radius + circle_2->radius) {
+		return;
+	}
+	else if (distance < abs(circle_1->radius - circle_2->radius)) {
+		return;
+	}
+
+	if (optimize) {
+		bool alreadyHasIntersection = false;
+		for (int ID : circle_1->intersectsWith)
+		{
+			if (ID == circle_2->ID) {
+				alreadyHasIntersection = true;
+				break;
+			}
+		}
+
+		if (alreadyHasIntersection) {
+			return;
+		}
+	}
+
+	//PSSST http://paulbourke.net/geometry/circlesphere/
+	double x1 = (pow(distance, 2) - pow(circle_2->radius, 2) + pow(circle_1->radius, 2)) / (2 * distance);
+	double a = (1 / distance) * sqrt(
+		(-distance + circle_2->radius - circle_1->radius)*
+		(-distance - circle_2->radius + circle_1->radius)*
+		(-distance + circle_2->radius + circle_1->radius)*
+		(distance + circle_2->radius + circle_1->radius)
+	);
+
+	if (roundf(distance * precision) / precision == roundf((circle_1->radius + circle_2->radius) * precision) / precision) {
+		a = distance;
+
+		Point intersection_middle = {
+			circle_1->center.x + x1 * (circle_2->center.x - circle_1->center.x) / distance,	//X coordinate
+			circle_1->center.y + x1 * (circle_2->center.y - circle_1->center.y) / distance	//Y coordinate
+		};
+
+
+		Point intersection_point1 = {
+			/*intersection_middle.x + (a / 2) * (circle_2->center.y - circle_1->center.y) / distance,
+			intersection_middle.y - (a / 2) * (circle_2->center.x - circle_1->center.x) / distance*/
+			intersection_middle
+		};
+
+		circle_1->intersectsWith.insert(circle_2->ID);
+		circle_2->intersectsWith.insert(circle_1->ID);
+
+		intersection_point1.isRaakpunt = true;
+		intersection_point1.isSnijpunt = true;
+		intersectionPoints->push_back(intersection_point1);
+		//std::cout << "Intersection X, Y: " << intersection_point1.x << "," << intersection_point1.y << std::endl;
+		return;
+	}
+
+	Point intersection_middle = {
+		circle_1->center.x + x1 * (circle_2->center.x - circle_1->center.x) / distance,	//X coordinate
+		circle_1->center.y + x1 * (circle_2->center.y - circle_1->center.y) / distance	//Y coordinate
+	};
+
+
+	Point intersection_point1 = {
+		intersection_middle.x + (a / 2) * (circle_2->center.y - circle_1->center.y) / distance,
+		intersection_middle.y - (a / 2) * (circle_2->center.x - circle_1->center.x) / distance
+	};
+	Point intersection_point2 = {
+		intersection_middle.x - (a / 2) * (circle_2->center.y - circle_1->center.y) / distance,
+		intersection_middle.y + (a / 2) * (circle_2->center.x - circle_1->center.x) / distance
+	};
+	intersection_point1.isSnijpunt = true;
+	intersection_point2.isSnijpunt = true;
+	if (circle_1->ID == 944 && circle_2->ID == 506 || circle_1->ID == 506 && circle_2->ID == 944) {
+		int YOLO = -1;
+	}
+
+	if (intersection_point1.x >= circle_1->rightX) {
+		intersection_point1.x = circle_1->rightX - 1.0f / precision;
+	}
+	if (intersection_point1.x >= circle_2->rightX) {
+		intersection_point1.x = circle_2->rightX - 1.0f / precision;
+	}
+	if (intersection_point2.x >= circle_1->rightX) {
+		intersection_point2.x = circle_1->rightX - 1.0f / precision;
+	}
+	if (intersection_point2.x >= circle_2->rightX) {
+		intersection_point2.x = circle_2->rightX - 1.0f / precision;
+	}
+
+	bool dontAdd2 = false;
+	//if (isnan(intersection_point1.x) || isnan(intersection_point1.x)) {
+	if ((isnan(intersection_point1.x) || isnan(intersection_point1.x)) ||
+		(roundf(intersection_point1.y * precision) / precision == roundf(circle_1->center.y*precision) / precision &&
+		(roundf(intersection_point1.y * precision) / precision == roundf(circle_2->center.y*precision) / precision))) {
+		if (roundf(circle_1->leftX * precision) / precision == roundf(circle_2->leftX * precision) / precision) {
+			intersection_point1.x = circle_1->leftX - 1.0f / precision;
+		}
+		if (roundf(circle_1->leftX * precision) / precision == roundf(circle_2->rightX * precision) / precision) {
+			intersection_point1.x = circle_1->leftX - 1.0f / precision;
+		}
+		if (roundf(circle_1->rightX * precision) / precision == roundf(circle_2->leftX * precision) / precision) {
+			intersection_point1.x = circle_1->rightX - 1.0f / precision;
+		}
+		if (roundf(circle_1->rightX * precision) / precision == roundf(circle_2->rightX * precision) / precision) {
+			intersection_point1.x = circle_1->rightX - 1.0f / precision;
+		}
+		if (roundf(circle_1->rightX * precision) / precision == roundf(circle_2->rightX * precision) / precision &&
+			roundf(circle_1->leftX * precision) / precision == roundf(circle_2->leftX * precision) / precision) {
+			int YOLO = -1;
+		}
+		if (circle_1->center.y != circle_2->center.y) {
+			int YOLO = -1;
+		}
+		intersection_point1.y = circle_1->center.y - 1.0f / precision;
+		intersection_point1.isRaakpunt = true;
+		dontAdd2 = true;
+	}
+
+	circle_1->intersectsWith.insert(circle_2->ID);
+	circle_2->intersectsWith.insert(circle_1->ID);
+	intersectionPoints->push_back(intersection_point1);
+	if (!dontAdd2) {
+		intersectionPoints->push_back(intersection_point2);
+	}
+	//std::cout << "Intersection X, Y: " << intersection_point1.x << "," << intersection_point1.y << std::endl;
+	//std::cout << "Intersection X, Y: " << intersection_point2.x << "," << intersection_point2.y << std::endl;
+}
+
+
+std::vector<Point> temp;
+std::vector<Point> keepPoints;
+void calculateIntersectionPoints(struct HalfCircle& c1, struct HalfCircle& c2, InputInfo &info, double currentX) {	
+	calculateIntersectionPoints(c1.parent, c2.parent, &temp,false);
 	if (temp.size() == 0) { return; }
 	if (c1.ID == 19 && c2.ID == 5) {
 		int YOLO = -1;
@@ -722,7 +1025,7 @@ void calculateIntersectionPoints(struct HalfCircle& c1, struct HalfCircle& c2, I
 	for(Point p : temp)
 	{
 		if (c1.bIsUpper) {
-			if (p.y < c1.parent->center.y) {
+			if (p.y <= c1.parent->center.y) {
 				continue;
 			}
 		}else if (!c1.bIsUpper) {
@@ -732,7 +1035,7 @@ void calculateIntersectionPoints(struct HalfCircle& c1, struct HalfCircle& c2, I
 		}
 
 		if (c2.bIsUpper) {
-			if (p.y < c2.parent->center.y) {
+			if (p.y <= c2.parent->center.y) {
 				continue;
 			}
 		}
@@ -757,7 +1060,7 @@ void calculateIntersectionPoints(struct HalfCircle& c1, struct HalfCircle& c2, I
 			keepPoints[i].hc1 = &c1;
 			keepPoints[i].hc2 = &c2;
 			keepPoints[i].isEdgePointCircle = false;
-			auto poc = new Point(keepPoints[i]);
+			auto poc = new Point(*new auto(keepPoints[i]));
 			//info.circleEventPointsLogN.insert(std::pair<double, Point*>(keepPoints[i].x,poc));
 			info.testQueue.emplace(*poc);
 			info.intersectionPoints.insert(*poc);
@@ -765,7 +1068,67 @@ void calculateIntersectionPoints(struct HalfCircle& c1, struct HalfCircle& c2, I
 
 
 	}
+	temp.clear();
+	keepPoints.clear();
 }
+
+void calculateIntersectionPoints(struct HalfCircle* c1, struct HalfCircle* c2, InputInfo *info, double currentX) {
+	calculateIntersectionPoints(c1->parent, c2->parent, &temp, false);
+	if (temp.size() == 0) { return; }
+	if (c1->ID == 19 && c2->ID == 5) {
+		int YOLO = -1;
+	}
+	for (Point p : temp)
+	{
+		if (c1->bIsUpper) {
+			if (p.y <= c1->parent->center.y) {
+				continue;
+			}
+		}
+		else if (!c1->bIsUpper) {
+			if (p.y > c1->parent->center.y) {
+				continue;
+			}
+		}
+
+		if (c2->bIsUpper) {
+			if (p.y <= c2->parent->center.y) {
+				continue;
+			}
+		}
+		else if (!c2->bIsUpper) {
+			if (p.y > c2->parent->center.y) {
+				continue;
+			}
+		}
+		//p is een correct snijpunt voor de halve cirkels
+		keepPoints.push_back((p));
+		//info.intersectionPoints.insert(p);
+	}
+
+	for (auto i = 0; i < keepPoints.size(); i++)
+	{
+		if (roundf(keepPoints[i].x * precision) / precision < roundf(currentX * precision) / precision) {
+			//info.intersectionPoints.insert(keepPoints[i]);
+			continue;
+		}
+
+		if (info->intersectionPoints.find(keepPoints[i]) == info->intersectionPoints.end()) {
+			keepPoints[i].hc1 = c1;
+			keepPoints[i].hc2 = c2;
+			keepPoints[i].isEdgePointCircle = false;
+			auto poc = new Point(*new auto(keepPoints[i]));
+			//info.circleEventPointsLogN.insert(std::pair<double, Point*>(keepPoints[i].x,poc));
+			info->testQueue.emplace(*poc);
+			info->intersectionPoints.emplace(*poc);
+		}
+
+
+	}
+	temp.clear();
+	keepPoints.clear();
+}
+
 
 void n_kwadraat_easy(InputInfo& info)
 {
@@ -781,7 +1144,7 @@ void n_kwadraat_easy(InputInfo& info)
 				continue;
 			}
 			else {
-				calculateIntersectionPoints(info.circles[i], info.circles[j], info.intersectionPoints);
+				calculateIntersectionPoints(info.circles[i], info.circles[j], &info.intersectionPoints);
 			}
 		}
 	}
@@ -804,7 +1167,7 @@ void n_kwadraat_sweepline(InputInfo& info) {
 
 			for (Circle * activeCircle : info.activeCircleVector)
 			{
-				calculateIntersectionPoints(*circle, *activeCircle, info.intersectionPoints);
+				calculateIntersectionPoints(*circle, *activeCircle, &info.intersectionPoints);
 			}
 
 			//for (std::pair<int, Circle*> activeCircle : activeCirclesTest)
@@ -837,17 +1200,17 @@ bool isIn(Point &p, Circle &c) {
 	return false;
 }
 
-bool isIn(Point &p, HalfCircle &c) {
-	if (c.bIsUpper) {
-		if (p.y < c.parent->center.y) {
+bool isIn(Point *p, HalfCircle *c) {
+	if (c->bIsUpper) {
+		if (p->y < c->parent->center.y) {
 			return false;
 		}
-	}else 	if (!c.bIsUpper) {
-		if (p.y >= c.parent->center.y) {
+	}else 	if (!c->bIsUpper) {
+		if (p->y > c->parent->center.y) {
 			return false;
 		}
 	}
-	if (distanceCalculate(p, c.parent->center) <= c.parent->radius) {
+	if (distanceCalculate(p, &c->parent->center) <= c->parent->radius) {
 		return true;
 	}
 	return false;
@@ -856,22 +1219,23 @@ bool isIn(Point &p, HalfCircle &c) {
 void n_log_n_sweepline(InputInfo& info) {
 	std::multimap<double, HalfCircle*, std::greater<double>> T;
 	auto start = std::chrono::system_clock::now();
+	Point testPoint = Point{ 0,0 };
 	while (!info.testQueue.empty())
 	{
 		auto p = info.testQueue.begin();
-		if (p->parent != nullptr && p->parent->ID == 17) {
-			int YOLO = -1;
-		}
-		while (!info.testQueue.empty() && p->parent != nullptr && p->parent->ID == 10) {
-			info.testQueue.erase(info.testQueue.begin());
-			p = info.testQueue.begin();
-		}
+		//if (p->parent != nullptr && p->parent->ID == 17) {
+		//	int YOLO = -1;
+		//}
+		//while (!info.testQueue.empty() && p->parent != nullptr && p->parent->ID == 10) {
+		//	info.testQueue.erase(info.testQueue.begin());
+		//	p = info.testQueue.begin();
+		//}
 		if (p == info.testQueue.end()) {
 			break;
 		}
 		if (p->isSnijpunt) {
 			if (!p->isRaakpunt) {
-				if (p->hc1->ID == 7 && p->hc2->ID == 14) {
+				if (p->hc1->ID == 39 && p->hc2->ID == 44 || p->hc1->ID == 44 && p->hc2->ID == 39) {
 					int YOLO = -1;
 				}
 				auto p1 = p->hc1->mapRef;
@@ -1006,10 +1370,10 @@ void n_log_n_sweepline(InputInfo& info) {
 				auto p2Lower = poc2 != T.end() ? std::next(poc2, 1) : T.end();
 
 				if (p1Upper != T.end()) {
-					calculateIntersectionPoints(*p1Upper->second, *poc1->second, info, p->x);
+					calculateIntersectionPoints(p1Upper->second, poc1->second, &info, p->x);
 				}
 				if (p2Lower != T.end()) {
-					calculateIntersectionPoints(*poc2->second, *p2Lower->second, info, p->x);
+					calculateIntersectionPoints(poc2->second, p2Lower->second, &info, p->x);
 				}
 			}
 		}
@@ -1022,271 +1386,130 @@ void n_log_n_sweepline(InputInfo& info) {
 				p2->second->mapRef = new std::multimap<double, HalfCircle*>::iterator(p2);
 			}
 			else {
-				if (p->parent->ID == 6 || p->parent->ID == 10) {
+				if (p->parent->ID == 12) {
 					int YOLO = -1;
 				}
-				double yKeyHigh = p->parent->center.y;
-				double yKeyLow = p->parent->center.y;
-				Point testPoint = { p->x,p->y };
-				auto testFrom = T.upper_bound(roundf(yKeyHigh * precision) / precision); //Maybe -1
-				if (testFrom == T.end()) {
-					testFrom = std::prev(testFrom);
+				testPoint.x = p->x;
+				testPoint.y = p->y;
+				auto p1 = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision,p->parent->upperCircle));
+				p1->second->mapRef = new auto(p1);
+				auto p1Upper = std::prev(p1);
+				auto p1Lower = std::next(p1);
+				if (p1Upper!=T.end() && !p1Upper->second->bIsUpper && isIn(&testPoint, p1Upper->second)) {
+					auto testUpper = std::prev(p1Upper);
+					while(testUpper != T.end() && !testUpper->second->bIsUpper && isIn(&testPoint, testUpper->second)) {
+						testUpper = std::prev(testUpper);
+					}
+					testUpper = std::next(testUpper);
+					auto temp = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, testUpper->second));
+					temp->second->mapRef = new auto(temp);
+					T.erase(testUpper);
+					testUpper = std::prev(p1);
+					while (!testUpper->second->bIsUpper && isIn(&testPoint, testUpper->second)) //p1Upper!=T.end() should be impossible
+					{
+						testUpper = std::prev(testUpper);
+						while (testUpper != T.end() && !testUpper->second->bIsUpper && isIn(&testPoint, testUpper->second)) {
+							testUpper = std::prev(testUpper);
+						}
+						testUpper = std::next(testUpper);
+						auto temp = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, testUpper->second));
+						temp->second->mapRef = new auto(temp);
+						T.erase(testUpper);
+						testUpper = std::prev(p1);
+					}
+					p1Upper = std::prev(p1);
 				}
-				auto testTo = T.upper_bound(roundf(yKeyLow * precision)/precision);
-				if (testFrom->second->bIsUpper) {
-					while (testFrom->second->bIsUpper) {
-						if (isIn(testPoint, *testFrom->second->parent)) {
-							testFrom = std::next(testFrom);
+				else if (p1Lower != T.end() && p1Lower->second->bIsUpper && isIn(&testPoint, p1Lower->second)) {
+					auto temp = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, p1Lower->second));
+					temp->second->mapRef = new auto(temp);
+					T.erase(p1Lower);
+					auto bu = temp->second;
+					temp->second = p1->second;
+					temp->second->mapRef = new auto(temp);
+					p1->second = bu;
+					p1->second->mapRef = new auto(p1);
+					p1 = temp;
+					p1Lower = std::next(p1);
+					while (p1Lower->second->bIsUpper && isIn(&testPoint, p1Lower->second)) //p1Lower!=T.end() should be impossible
+					{
+						auto temp = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, p1Lower->second));
+						temp->second->mapRef = new auto(temp);
+						T.erase(p1Lower);
+						auto bu = temp->second;
+						temp->second = p1->second;
+						temp->second->mapRef = new auto(temp);
+						p1->second = bu;
+						p1->second->mapRef = new auto(p1);
+						p1 = temp;
+						p1Lower = std::next(p1);
+					}
+				}
+				p1Upper = std::prev(p1);
+				p1Lower = std::next(p1);
+				if ((p1Upper == T.end() || p1Lower == T.end()) || (p1Upper->second->ID != p1Lower->second->ID)) {
+					while (p1Lower != T.end() && !p1Lower->second->bIsUpper && !isIn(&testPoint, p1Lower->second)) {
+						auto temp = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, p1Lower->second));
+						T.erase(p1Lower);
+						auto bu = temp->second;
+						temp->second = p1->second;
+						temp->second->mapRef = new auto(temp);
+						p1->second = bu;
+						p1->second->mapRef = new auto(p1);
+						p1 = temp;
+						p1Lower = std::next(p1);
+					}
+				}
+				if (p1Upper != T.end() && p1Upper->second->bIsUpper && !isIn(&testPoint, p1Upper->second) && (p1Lower != T.end() && !isIn(&testPoint, p1Lower->second))) {
+					auto testHigher = std::prev(p1Upper);
+					while (testHigher!= T.end() && testHigher->second->bIsUpper && isIn(&testPoint,testHigher->second)) {
+						/*while (testHigher != T.end() && testHigher->second->bIsUpper && isIn(&testPoint, testHigher->second)) {
+							testHigher = std::prev(testHigher);
+						}*/
+						testHigher = std::next(testHigher);
+						auto temp = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, testHigher->second));
+						T.erase(testHigher);
+						temp->second->mapRef = new auto(temp);
+						p1Upper = std::prev(p1);
+						if (!(p1Upper != T.end() && p1Upper->second->bIsUpper && !isIn(&testPoint, p1Upper->second))) {
+							break;
 						}
 						else {
-							break;
-						}
-					}
-					if ( testFrom != T.end()) {
-						testFrom = std::prev(testFrom);
-					}
-				}
-				else if (isIn(testPoint,*testFrom->second->parent)) {
-					//testPoint.y = roundf((testFrom->second->parent->center.y + 1.0f/precision) * precision)/precision;
-					//testFrom = T.end();
-					testFrom = std::prev(testFrom);
-				}
-				if (testFrom != T.end() && !isIn(testPoint, *testFrom->second)) {
-					auto temp = std::next(testFrom);
-					while (temp != T.end() && roundf(temp->first * precision) / precision == roundf(testFrom->first * precision) / precision) {
-						testFrom = temp;
-						if (isIn(testPoint, *testFrom->second)) {
-							break;
-						}
-						temp = std::next(testFrom);
-					}
-					testFrom = std::prev(testFrom);
-				}
-				//while (testFrom!= T.end() && testFrom->first > p->y) {
-				//	auto temp = std::next(testFrom);
-				//	if () {
-
-				//	}
-				//}
-
-				//auto p1 = T.insert(std::pair<double, HalfCircle*>(testFrom != T.end() ? (isIn(testPoint,*testFrom->second->parent) ? roundf(testFrom->first * precision) / precision : roundf(testPoint.y * precision) / precision) : roundf(testPoint.y*precision)/precision, p->parent->upperCircle));
-				//auto p1 = T.insert(std::pair<double, HalfCircle*>(testFrom != T.end() ? (isIn(testPoint, *testFrom->second->parent) ? roundf((testPoint.y + p->parent->radius)*precision)/precision : roundf((testPoint.y + p->parent->radius) * precision) / precision) : roundf((testPoint.y+p->parent->radius)*precision) / precision, p->parent->upperCircle));
-
-				//05-02
-				//if (p->parent->ID == 4) {
-				//	int YOLO = -1;
-				//}
-				//bool bFoundIn = false;
-				//auto start = T.begin();
-				//while (start != T.end()) {
-				//	if (isIn(testPoint, *start->second)) {
-				//		bFoundIn = true;
-				//		break;
-				//	}
-				//	start = std::next(start);
-				//}
-				//if (bFoundIn) {
-				//	while(start != T.end() && isIn(testPoint, *start->second)) {
-				//		start = std::next(start);
-				//	}
-				//	start = std::prev(start, 2);
-				//}
-				//if (!bFoundIn && start == T.end()) {
-				//	start = std::prev(start);
-				//}
-
-				auto start = T.begin();
-				bool bFoundFirst = false;
-				while (start!=T.end() && (!isIn(testPoint,*start->second) || start->second->bIsUpper)) {
-					if (isIn(testPoint, *start->second)) {
-						if (p->parent->ID == 7) {
 							int YOLO = -1;
 						}
-						bFoundFirst = true;
-					}
-					else if (bFoundFirst) {
-						auto goDeeper = start;
-						auto deepest = start;
-						while (goDeeper != T.end()) {
-							if (goDeeper->second->bIsUpper && isIn(testPoint,*goDeeper->second)) {
-								deepest = goDeeper;
-							}
-							goDeeper = std::next(goDeeper);
-						}
-						if (deepest!=start) {
-							int YOLO = -1;
-							//start = deepest;
-						}
-						auto test2 = start;
-						while (test2 != T.end() && test2->first > p->y) {
-							test2 = std::next(test2);
-						}
-						test2 = std::prev(test2);
-						//start = std::next(start);
-						start = test2;
-						start = std::next(start);
-						break;
-					}
-					start = std::next(start);
-				}
-				start = std::prev(start);
-
-				auto goDeeper = T.begin();
-				auto deepest = T.end();
-				while (goDeeper != T.end()) {
-					if (isIn(testPoint, *goDeeper->second)) {
-						deepest = goDeeper;
-					}
-					goDeeper = std::next(goDeeper);
-				}
-				auto temp = std::prev(start);
-				testFrom = start;
-				if (deepest != T.end() && deepest->second->bIsUpper && !testFrom->second->bIsUpper && deepest->first < testFrom->first) {
-					testFrom = deepest;
-					int YOLO = -1;
-				}
-				auto mustBeLower = std::next(testFrom);
-				if (p->parent->ID == 8) {
-					int YOLO = -1;
-				}
-				if (testFrom->first < p->y && !isIn(testPoint, *testFrom->second)) {
-					if (std::prev(testFrom)!=T.end()) {
-						int YOLO = -1;
-						testFrom = std::prev(testFrom);
-						mustBeLower = std::next(testFrom);
-					}
-				}
-				if (isIn(testPoint, *testFrom->second) && p->y > testFrom->first) {
-					auto temp = T.insert(std::pair<double, HalfCircle*>(p->y,testFrom->second));
-					T.erase(testFrom);
-					testFrom = temp;
-					testFrom->second->mapRef = new auto(testFrom);
-				}
-				else if ( mustBeLower != T.end() && !mustBeLower->second->bIsUpper && isIn(testPoint, *mustBeLower->second)) {
-					auto tempLower = std::next(mustBeLower);
-					auto temp = T.insert(std::pair<double, HalfCircle*>(p->y, mustBeLower->second));
-					T.erase(mustBeLower);
-					mustBeLower = temp;
-					mustBeLower->second->mapRef = new auto(mustBeLower);
-					if (tempLower!= T.end()) {
-						while (tempLower != T.end() && isIn(testPoint, *tempLower->second) && tempLower!=mustBeLower) {
-							tempLower = std::prev(tempLower);
-						}
-						tempLower = std::next(tempLower);
-						while (tempLower != T.end() && tempLower != mustBeLower) {
-							tempLower = std::next(tempLower);
-							auto move = std::prev(tempLower);
-							auto temp = T.insert(std::pair<double, HalfCircle*>(p->y, move->second));
-							T.erase(move);
-							temp->second->mapRef = new auto(temp);
-						}
 					}
 				}
 
-				auto p1 = T.insert(std::pair<double, HalfCircle*>(testFrom != T.end() ? 
-					(isIn(testPoint, *testFrom->second->parent) 
-					?	//roundf((testFrom->first)*precision) / precision 
-						roundf((testPoint.y)*precision) / precision
-				//	: roundf((testFrom->first) * precision) / precision)
-					: roundf((testPoint.y ) * precision) / precision) 
-					: roundf((testPoint.y )*precision) / precision, p->parent->upperCircle));
-		
-				//if (p1->first > testFrom->first) {
-				//	auto stopCondition = testFrom->second;
-				//	auto testLower = std::next(p1, 1);
-				//	while (std::prev(p1, 1) == T.end()||stopCondition !=std::prev(p1,1)->second) {
-				//		auto bu = testLower->second;
-				//		testLower->second = p1->second;
-				//		p1->second = bu;
-				//		p1->second->mapRef = new auto(p1);
-				//		p1 = testLower;
-				//	}
-				//	T.erase(p1);
-				//	p1 = T.insert(std::pair<double, HalfCircle*>(roundf((testPoint.y)*precision) / precision, p->parent->upperCircle));
-				//}
-				//else {
-				//	auto testUpper = std::prev(p1, 1);
-				//	if (testUpper != T.end()) {
-				//		while (testUpper != testFrom) {
-
-				//			//if (!testUpper->second->bIsUpper) {
-				//			auto bu = testUpper->second;
-				//			testUpper->second = p1->second;
-				//			p1->second = bu;
-				//			//std::swap(p1, testUpper);
-				//			p1->second->mapRef = new auto(p1);
-				//			p1 = testUpper;
-				//			//}
-				//			//else {
-				//			//	break;
-				//			//}
-
-				//			testUpper = std::prev(testUpper, 1);
-				//		}
-				//	}
-				//	T.erase(p1);
-				//	p1 = T.insert(std::pair<double, HalfCircle*>(roundf((testPoint.y)*precision) / precision, p->parent->upperCircle));
-				//}
-
-				p1->second->mapRef = new std::multimap<double, HalfCircle*>::iterator(p1);
-
-				auto aboveP1 = std::prev(p1);
-				while (aboveP1 != T.end() && aboveP1!=testFrom && aboveP1->first < testFrom->first) {
-					break;
+				p1Upper = std::prev(p1);
+				p1Lower = std::next(p1);
+				if (p1Upper != T.end()) {
+					calculateIntersectionPoints(p1Upper->second, p1->second, &info, p->x);
+				}
+				if (p1Lower != T.end()) {
+					calculateIntersectionPoints(p1->second, p1Lower->second, &info, p->x);
 				}
 
-				//auto p2 = T.insert(std::pair<double, HalfCircle*>(roundf(p1->first * precision) / precision, p->parent->lowerCircle));
-				auto p2 = T.insert(std::pair<double, HalfCircle*>(roundf(p->y * precision) / precision, p->parent->lowerCircle));
-				auto testLower = std::next(p2, 1);
-			//	if (testLower != T.end() && testLower->second->parent->ID != p2->second->parent->ID) {
-			//		while (testLower != p1) {
-			//			//if (roundf(testLower->first * precision) / precision != roundf(p2->first * precision) / precision) {
-			//			//	break;
-			//			//}
-			//			//else {
-			//			//	if (testLower != p1) {
-			//			auto bu = testLower->second;
-			//			testLower->second = p2->second;
-			//			p2->second = bu;
-			//			p2->second->mapRef = new auto(p2);
-			//			p2 = testLower;
-			///*				}
-			//				else {
-			//					break;
-			//				}
-			//			}*/
-			//			testLower = std::prev(testLower, 1);
-			//		}
-			//	}
-				//
-
-				while (mustBeLower != testLower && std::prev(mustBeLower) != testLower) {
-					auto temp = T.insert(*mustBeLower);
-					while (std::next(mustBeLower)->first == mustBeLower->first && std::next(mustBeLower)->second != p1->second) {
-						auto tempLower = T.insert(*std::next(mustBeLower));
-						T.erase(std::next(mustBeLower));
-						tempLower->second->mapRef = new auto(tempLower);
-					}
-					T.erase(mustBeLower);
-					mustBeLower = temp;
-					mustBeLower->second->mapRef = new auto(temp);
-					testLower = std::next(p2, 1);
-				}
-				p2->second->mapRef = new std::multimap<double, HalfCircle*>::iterator(p2);
-
-				if (p1->second->parent->ID != p2->second->parent->ID) {
-					int YOLO = -1;
+				auto p2 = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, p->parent->lowerCircle));
+				p2->second->mapRef = new auto(p2);
+				auto p2Upper = std::prev(p2);
+				while (p2Upper != p1) {
+					auto bu = p2Upper->second;
+					p2Upper->second = p2->second;
+					p2Upper->second->mapRef = new auto(p2Upper);
+					p2->second = bu;
+					p2->second->mapRef = new auto(p2);
+					p2 = p2Upper;
+					p2Upper = std::prev(p2);
 				}
 
-				auto p1Upper = std::prev(p1, 1);
-				auto p2Lower = std::next(p2, 1);
+				p1Upper = std::prev(p1);
+				auto p2Lower = std::next(p2);
 
 				if (p1Upper != T.end()) {
-					calculateIntersectionPoints(*p1Upper->second, *p1->second, info, p->x);
+					//calculateIntersectionPoints(*p1Upper->second, *p1->second, info, p->x);
 				}
 
 				if (p2Lower != T.end()) {
-					calculateIntersectionPoints(*p2->second, *p2Lower->second, info, p->x);
+					calculateIntersectionPoints(p2->second, p2Lower->second, &info, p->x);
 				}
 			}
 
