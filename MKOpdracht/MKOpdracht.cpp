@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <iostream>
+#include <math.h>
+
 
 //For reading files
 #include <fstream>
@@ -22,7 +24,7 @@
 #include <random>
 #endif
 
-const int precision = 100000;
+const int precision = 1000000;
 
 struct Point {
 	double x;
@@ -73,7 +75,7 @@ struct testComp {
 			//if (!p1.isSnijpunt && p2.isSnijpunt) {
 			//	//return true;
 			//}
-			return p1.y < p2.y;
+			return p1.y > p2.y;
 		}
 		return p1.x < p2.x;
 		//return a.x == b.x ? a.y<b.y : a.x>b.x;
@@ -139,6 +141,7 @@ struct InputInfo {
 	//std::multimap<Point, std::vector<Point>, testComp> testQueue;
 	std::multiset<Point, testComp> testQueue;
 	//std::unordered_multiset<Point, testComp> testQueue;
+	//std::priority_queue<double, std::vector<Point*>, std::greater<double>> QLog2;
 
 	std::multimap<double, HalfCircle*> halfCircles;
 
@@ -181,11 +184,10 @@ InputInfo test_input_circles_4;
 InputInfo openAndReadFile(char*& path);
 double distanceCalculate(Point p1, Point p2);
 void calculateIntersectionPoints(struct Circle& c1, struct Circle& c2, std::unordered_set<Point, MyHashFunction>* intersectionPoints, bool optimize = true);
-void calculateIntersectionPoints(struct HalfCircle& c1, struct HalfCircle& c2, InputInfo &info, double currentX);
 
 void n_kwadraat_easy(InputInfo& ii);
 void n_kwadraat_sweepline(InputInfo& ii);
-void n_log_n_sweepline(InputInfo& ii);
+void n_log_n_sweepline2(InputInfo& ii);
 
 int main(int argc, char **argv)
 {
@@ -207,7 +209,7 @@ int main(int argc, char **argv)
 		n_kwadraat_sweepline(input_circles);
 		break;
 	case 3:
-		n_log_n_sweepline(input_circles);
+		n_log_n_sweepline2(input_circles);
 		break;
 	default:
 		break;
@@ -233,7 +235,7 @@ int main(int argc, char **argv)
 	std::cout << "ms: " << test_input_circles_2.milliseconds.count() << std::endl;
 	std::cout << "Found: " << test_input_circles_2.intersectionPoints.size() << " intersections" << std::endl << std::endl;
 
-	n_log_n_sweepline(test_input_circles_3);
+	n_log_n_sweepline2(test_input_circles_3);
 	std::cout << "Algorithm 3, Test circles: " << test_input_circles_3.num_circles << std::endl;
 	std::cout << "ms: " << test_input_circles_3.milliseconds.count() << std::endl;
 	std::cout << "Found: " << test_input_circles_3.intersectionPoints.size() << " intersections" << std::endl << std::endl;
@@ -323,6 +325,15 @@ InputInfo openAndReadFile(char*& path) {
 		for (auto i = 0; i < numCircles; i++)
 		{
 			file >> x >> y >> r;
+			/*float r2 = static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (10000.0f / precision)));
+			x *= (1.0 + r2);
+			y *= (1.0 + r2);
+			x = roundf(x * precision) / precision;
+			y = roundf(y * precision) / precision;*/
+			x = roundf(x*precision) / precision;
+			y = roundf(y*precision) / precision;
+			r = roundf(r*precision) / precision;
+
 			Point circleCenter = { x,y };
 			//Circle circleInfo = (Circle{ i, circleCenter, r,x - r,x + r });
 			//circleInfo.lowerCircle = new HalfCircle{ false, &circleInfo };
@@ -358,7 +369,7 @@ InputInfo openAndReadFile(char*& path) {
 		//int region = 250;
 		//int maxRadius = 20;
 
-		int extraCircles = 15;
+		int extraCircles = 20;
 		int region = 10;
 		int maxRadius = 20;
 
@@ -376,10 +387,11 @@ InputInfo openAndReadFile(char*& path) {
 			y = rand() % region;
 			r = rand() % maxRadius / 5.0 + 0.5;
 
-			x *= (1.0 + doubleRand());
-			y *= (1.0 + doubleRand());
+			//x *= (1.0 + doubleRand());
+			//y *= (1.0 + doubleRand());
 			x = roundf(x * precision) / precision;
 			y = roundf(y * precision) / precision;
+			r = roundf(r * precision) / precision;
 
 			for (auto circle : test_input_circles_1.circles) {
 				if (roundf(circle.radius * precision) / precision == roundf(r * precision) / precision && circle.center.x == x && circle.center.y == y) {
@@ -438,6 +450,8 @@ InputInfo openAndReadFile(char*& path) {
 			test_input_circles_3.circleEventPointsLogN.insert(std::pair<double, Point*>(eventPointRight->x, eventPointRight));
 			test_input_circles_3.testQueue.emplace(*eventPointLeft);
 			test_input_circles_3.testQueue.emplace(*eventPointRight);
+			//test_input_circles_3.QLog2.push(eventPointLeft);
+			//test_input_circles_3.QLog2.push(eventPointRight);
 		}
 
 		test_input_circles_4 = { 3, 3, std::vector<Circle>(3) };
@@ -1014,71 +1028,14 @@ void calculateIntersectionPoints(struct Circle* circle_1, struct Circle* circle_
 }
 
 
-std::vector<Point> temp;
+std::vector<Point> *temp = new std::vector<Point>;
 std::vector<Point> keepPoints;
-void calculateIntersectionPoints(struct HalfCircle& c1, struct HalfCircle& c2, InputInfo &info, double currentX) {	
-	calculateIntersectionPoints(c1.parent, c2.parent, &temp,false);
-	if (temp.size() == 0) { return; }
-	if (c1.ID == 19 && c2.ID == 5) {
-		int YOLO = -1;
-	}
-	for(Point p : temp)
-	{
-		if (c1.bIsUpper) {
-			if (p.y <= c1.parent->center.y) {
-				continue;
-			}
-		}else if (!c1.bIsUpper) {
-			if (p.y > c1.parent->center.y) {
-				continue;
-			}
-		}
-
-		if (c2.bIsUpper) {
-			if (p.y <= c2.parent->center.y) {
-				continue;
-			}
-		}
-		else if (!c2.bIsUpper) {
-			if (p.y > c2.parent->center.y) {
-				continue;
-			}
-		}
-		//p is een correct snijpunt voor de halve cirkels
-		keepPoints.push_back((p));
-		//info.intersectionPoints.insert(p);
-	}
-
-	for (auto i = 0; i < keepPoints.size(); i++)
-	{
-		if (roundf(keepPoints[i].x * precision)/precision < roundf(currentX * precision) / precision) {
-			//info.intersectionPoints.insert(keepPoints[i]);
-			continue;
-		}
-
-		if (info.intersectionPoints.find(keepPoints[i]) == info.intersectionPoints.end()) {
-			keepPoints[i].hc1 = &c1;
-			keepPoints[i].hc2 = &c2;
-			keepPoints[i].isEdgePointCircle = false;
-			auto poc = new Point(*new auto(keepPoints[i]));
-			//info.circleEventPointsLogN.insert(std::pair<double, Point*>(keepPoints[i].x,poc));
-			info.testQueue.emplace(*poc);
-			info.intersectionPoints.insert(*poc);
-		}
-
-
-	}
-	temp.clear();
-	keepPoints.clear();
-}
 
 void calculateIntersectionPoints(struct HalfCircle* c1, struct HalfCircle* c2, InputInfo *info, double currentX) {
-	calculateIntersectionPoints(c1->parent, c2->parent, &temp, false);
-	if (temp.size() == 0) { return; }
-	if (c1->ID == 19 && c2->ID == 5) {
-		int YOLO = -1;
-	}
-	for (Point p : temp)
+	calculateIntersectionPoints(c1->parent, c2->parent, temp, false);
+	if (temp->size() == 0) { return; }
+
+	for (Point p : *temp)
 	{
 		if (c1->bIsUpper) {
 			if (p.y <= c1->parent->center.y) {
@@ -1125,10 +1082,9 @@ void calculateIntersectionPoints(struct HalfCircle* c1, struct HalfCircle* c2, I
 
 
 	}
-	temp.clear();
+	temp->clear();
 	keepPoints.clear();
 }
-
 
 void n_kwadraat_easy(InputInfo& info)
 {
@@ -1216,336 +1172,629 @@ bool isIn(Point *p, HalfCircle *c) {
 	return false;
 }
 
-void n_log_n_sweepline(InputInfo& info) {
-	std::multimap<double, HalfCircle*, std::greater<double>> T;
+#define min(a,b) ((a)<(b)?(a):(b))
+#define max(a,b) ((a)>(b)?(a):(b))
+
+#define min(a,b) ((a)<(b)?(a):(b))
+#define max(a,b) ((a)>(b)?(a):(b))
+
+template <class T>
+struct Node {
+	T value;
+	Node *left = NULL;
+	Node *right = NULL;
+
+	Node(T val) {
+		this->value = val;
+	}
+
+	Node(T val, Node<T> left, Node<T> right) {
+		this->value = val;
+		this->left = left;
+		this->right = right;
+	}
+
+	inline bool operator>(const Node<T> &node) const {
+		return value > node.value;
+	}
+
+	inline bool operator<(const Node<T> &node) const {
+		return value < node.value;
+	}
+
+	inline bool operator>=(const Node<T> &node) const {
+		return value >= node.value;
+	}
+
+	inline bool operator<=(const Node<T> &node) const {
+		return value <= node.value;
+	}
+
+	inline bool operator==(const Node<T> &node) const {
+		return value == node.value;
+	}
+
+	//friend bool operator==(Node<T> const& lhs, Node<T> const& rhs) {
+	//	return lhs == rhs;
+	//}
+};
+
+template <class T>
+class BST {
+
+private:
+	Node<T> *root;
+
+	Node<T>* addHelper(Node<T> *root, T val) {
+		if (root->value > val) {
+			if (!root->left) {
+				return root->left = new Node<T>(val);
+			}
+			else {
+				return addHelper(root->left, val);
+			}
+		}
+		else {
+			if (!root->right) {
+				return root->right = new Node<T>(val);
+			}
+			else {
+				return addHelper(root->right, val);
+			}
+		}
+	}
+
+	void printHelper(Node<T> *root) {
+		if (!root) return;
+		printHelper(root->left);
+		std::cout << root->value << ' ';
+		printHelper(root->right);
+	}
+
+	int nodesCountHelper(Node<T> *root) {
+		if (!root) return 0;
+		else return 1 + nodesCountHelper(root->left) + nodesCountHelper(root->right);
+	}
+
+	int heightHelper(Node<T> *root) {
+		if (!root) return 0;
+		else return 1 + max(heightHelper(root->left), heightHelper(root->right));
+	}
+
+	void printMaxPathHelper(Node<T> *root) {
+		if (!root) return;
+		std::cout << root->value << ' ';
+		if (heightHelper(root->left) > heightHelper(root->right)) {
+			printMaxPathHelper(root->left);
+		}
+		else {
+			printMaxPathHelper(root->right);
+		}
+	}
+
+	bool deleteValueHelper(Node<T>* parent, Node<T>* current, T value) {
+		if (!current) return false;
+		if (current->value == value) {
+			if (current->left == NULL || current->right == NULL) {
+				Node<T>* temp = current->left;
+				if (current->right) temp = current->right;
+				if (parent) {
+					if (parent->left == current) {
+						parent->left = temp;
+					}
+					else {
+						parent->right = temp;
+					}
+				}
+				else {
+					this->root = temp;
+				}
+			}
+			else {
+				Node<T>* validSubs = current->right;
+				while (validSubs->left) {
+					validSubs = validSubs->left;
+				}
+				T temp = current->value;
+				current->value = validSubs->value;
+				validSubs->value = temp;
+				return deleteValueHelper(current, current->right, temp);
+			}
+			delete current;
+			return true;
+		}
+		return deleteValueHelper(current, current->left, value) ||
+			deleteValueHelper(current, current->right, value);
+	}
+
+	Node<T>* findValueHelper(Node<T>* parent, Node<T>* current, T value) {
+		if (current == NULL) return nullptr;
+		if (current->value == value) {
+			return current;
+		}
+		if (value > current->value) {
+			return findValueHelper(current, current->right, value);
+		}
+		else {
+			return findValueHelper(current, current->left, value);
+		}
+	}
+
+	Node<T>* searchHelper(Node<T>* parent, T value) {
+		if (parent == nullptr || parent->value == value) {
+			return parent;
+		}
+
+		if (parent->value < value)
+			return searchHelper(parent->right, value);
+
+		return searchHelper(parent->left, value);
+	}
+
+	Node<T>* findSuccesorHelper(Node<T>* parent, Node<T>* node) {
+		if (parent == nullptr) {
+			return nullptr;
+		}
+
+		if (node->right != nullptr) {
+			return findMin(node->right);
+		}
+
+		Node<T>* successor = nullptr;
+
+		while (parent!=nullptr) {
+			if (*node < *parent) {
+				successor = parent;
+				parent = parent->left;
+			}
+			else if (*node > *parent) {
+				parent = parent->right;
+			}
+			else {
+				break;
+			}
+		}
+
+		return successor;
+	}	
+
+	Node<T>* findSuccesorHelper2(Node<T>* parent, Node<T>* node) {
+		Node<T>* successor = nullptr;
+		while (true) {
+			if (*node < parent->value) {
+				successor = parent;
+				parent = parent->left;
+			}else if (*node > parent->value) {
+				parent = parent->right;
+			}
+			else {
+				if (parent->right) {
+					successor = findMin(parent->right);
+				}
+				break;
+			}
+
+			if (!parent) {
+				return nullptr;
+			}
+		}
+		return successor;
+	}
+
+	Node<T>* findMinHelper(Node<T>* node) {
+		while (node->left) {
+			node = node->left;
+		}
+		return node;
+	}
+
+	Node<T>* findMaxHelper(Node<T>* node) {
+		while (node->right) {
+			node = node->right;
+		}
+		return node;
+	}
+
+	Node<T>* findPredecessorHelper(Node<T>* root, Node<T>* node)
+	{
+		Node<T>* predecessor = nullptr;
+
+		if (root == nullptr) {
+			return predecessor;
+		}
+
+		while (root!=nullptr) {
+			if (*root == *node) {
+				if (root->left) {
+					predecessor = root->left;
+					while (predecessor->right)
+						predecessor = predecessor->right;
+				}
+
+				return predecessor;
+			}
+			else if (*root < *node) {
+				predecessor = root;
+				root = root->right;
+			}
+			else {
+				root = root->left;
+			}
+		}
+		return predecessor;
+	}
+
+	Node<T>* findPredecessorHelper2(Node<T>* parent, Node<T>* node) {
+		Node<T>* predecessor = NULL;
+		Node<T>* current = parent;
+
+		if (!root)
+			return NULL;
+
+		while (current && !(current->value == node->value)) {
+			if (current->value > node->value) {
+				current = current->left;
+			}
+			else {
+				predecessor = current;
+				current = current->right;
+			}
+		}
+		if (current && current->left) {
+			predecessor = findMaxHelper(current->left);
+		}
+		return predecessor;
+	}
+
+	void deepSearchHelper(Node<T>* parent,Node<T>*& node ,T value) {
+		if (parent == NULL) {
+			return;
+		}
+		if (parent->value == value) {
+			node = parent;
+			return;
+		}
+		if (node) {
+			return;
+		}
+		if (parent->left) {
+			deepSearchHelper(parent->left, node, value);
+		}
+		if (node) {
+			return;
+		}
+		if (parent->right) {
+			deepSearchHelper(parent->right, node, value);
+		}
+	}
+public:
+	Node<T>* add(T val) {
+		if (root) {
+			return this->addHelper(root, val);
+		}
+		else {
+			return root = new Node<T>(val);
+		}
+	}
+
+	void print() {
+		printHelper(this->root);
+	}
+
+	int nodesCount() {
+		return nodesCountHelper(root);
+	}
+
+	int height() {
+		return heightHelper(this->root);
+	}
+
+	void printMaxPath() {
+		printMaxPathHelper(this->root);
+	}
+
+	bool deleteValue(T value) {
+		return this->deleteValueHelper(NULL, this->root, value);
+	}
+
+	Node<T>* findMin(Node<T>* node) {
+		return findMinHelper(node);
+	}
+
+	Node<T>* findSuccessor(Node<T>* node) {
+		auto temp = findSuccesorHelper(root, node);
+		auto temp2 = findSuccesorHelper2(root, node);
+		if (temp!=temp2) {
+		//	return temp2;
+		}
+		return findSuccesorHelper(root, node);
+	}
+
+	Node<T>* findPredecessor(Node<T>* node) {
+		auto temp = findPredecessorHelper(root, node);
+		auto temp2 =findPredecessorHelper2(root, node);
+		if (temp!=temp2) {
+		//	return temp2;
+		}
+		return findPredecessorHelper(root, node);
+	}
+
+	Node<T>* findValue(T value) {
+		return this->findValueHelper(NULL, this->root, value);
+	}
+
+	Node<T>* search(T value) {
+		//auto temp = this->searchHelper(this->root, value);
+		if (this->root == NULL) {
+			return nullptr;
+		}
+		Node<T>* temp = nullptr;
+		if (temp == nullptr) {
+			deepSearchHelper(this->root, temp,value);
+			if (temp == nullptr) {
+				int YOLO = -1;
+			}
+		}
+		return temp;
+	}
+
+	Node<T>* getRoot() {
+		return root;
+	}
+};
+
+static double sweepX = 0.0;
+
+double calcY(HalfCircle* hc) {
+	//(x-a)^2 + (y-b)^2 = r^2
+	//r^2 - (x-a)^2 = (y-b)^2
+	//UPPER:
+	//sqrt(R^2 - (x-a)^2) = y-b
+	//sqrt(R^2 - (x-a)^2) + b = y
+	//LOWER
+	//-sqrt(R^2 - (x-a)^2) = y-b
+	//-sqrt(R^2 - (x-a)^2)+b = y
+	if (hc->bIsUpper) {
+		return roundf((sqrt(std::abs(roundf(pow(hc->parent->radius, 2)*precision)/precision - roundf(pow((sweepX - hc->parent->center.x), 2)*precision)/precision)) + hc->parent->center.y)*precision)/precision;
+	}
+	else {
+		return roundf((-sqrt(std::abs(roundf(pow(hc->parent->radius, 2)*precision) / precision - roundf(pow((sweepX - hc->parent->center.x), 2)*precision) / precision)) + hc->parent->center.y)*precision) / precision;
+	}
+}
+
+double calcY(HalfCircle* hc, double x) {
+	//(x-a)^2 + (y-b)^2 = r^2
+	//r^2 - (x-a)^2 = (y-b)^2
+	//UPPER:
+	//sqrt(R^2 - (x-a)^2) = y-b
+	//sqrt(R^2 - (x-a)^2) + b = y
+	//LOWER
+	//-sqrt(R^2 - (x-a)^2) = y-b
+	//-sqrt(R^2 - (x-a)^2)+b = y
+	if (hc->bIsUpper) {
+		return sqrt(pow(hc->parent->radius, 2) - pow((x - hc->parent->center.x), 2)) + hc->parent->center.y;
+	}
+	else {
+		return -sqrt(pow(hc->parent->radius, 2) - pow((x - hc->parent->center.x), 2)) + hc->parent->center.y;
+	}
+}
+
+const int halfPrecision = 1000;
+
+struct status_node {
+	HalfCircle* sc;
+	double x;
+
+	inline bool operator==(const status_node &node) const {
+		return sc->ID == node.sc->ID && sc->bIsUpper == node.sc->bIsUpper;
+	}
+
+	friend bool operator>(status_node const& lhs, status_node const& rhs) {
+		auto y1 = roundf(calcY(lhs.sc) * precision ) / precision;
+		auto y2 = roundf(calcY(rhs.sc) * precision) / precision;
+		//return calcY(lhs.sc, lhs.x) > calcY(rhs.sc, rhs.x);
+		return calcY(lhs.sc) > calcY(rhs.sc);
+		//return y1 > y2;
+	}
+
+	friend bool operator<(status_node const& lhs, status_node const& rhs) {
+		//return calcY(lhs.sc, lhs.x) < calcY(rhs.sc, rhs.x);
+		auto y1 = roundf(calcY(lhs.sc) * precision) / precision;
+		auto y2 = roundf(calcY(rhs.sc) * precision) / precision;
+		//return calcY(lhs.sc) <= calcY(rhs.sc);
+		return y1 < y2;
+	}
+
+	friend bool operator<=(status_node const& lhs, status_node const& rhs) {
+		//return calcY(lhs.sc, lhs.x) < calcY(rhs.sc, rhs.x);
+		auto y1 = roundf(calcY(lhs.sc) * precision) / precision;
+		auto y2 = roundf(calcY(rhs.sc) * precision) / precision;
+		return y1 <= y2;
+	}
+
+	friend bool operator>=(status_node const& lhs, status_node const& rhs) {
+		//return calcY(lhs.sc, lhs.x) < calcY(rhs.sc, rhs.x);
+		auto y1 = roundf(calcY(lhs.sc) * precision) / precision;
+		auto y2 = roundf(calcY(rhs.sc) * precision) / precision;
+		return y1 >= y2;
+	}
+
+	friend std::ostream &operator<<(std::ostream &output, const status_node &D) {
+		auto temp = D.sc->bIsUpper ? "UPPER" : "LOWER";
+		output << "ID: " << D.sc->ID << ", U: " << temp << std::endl;
+		return output;
+	}
+};
+
+void n_log_n_sweepline2(InputInfo& info) {
+	//BST<int> *testTree = new BST<int>();
+	//testTree->add(5);
+	//auto temp2 = testTree->add(4);
+	//auto temp3 = testTree->add(7);
+	//testTree->add(8);
+	//auto temp = testTree->add(8);
+	//testTree->add(9);
+	//testTree->add(2);
+	//testTree->add(60);
+	//testTree->add(39);
+	//testTree->add(10);
+	//testTree->add(-3);
+	//auto what = testTree->findValue(8);
+	//auto test2 = testTree->findSuccessor(temp2);
+	//auto test3 = testTree->findPredecessor(temp2);
+	////testTree->print();
+	//Node<int>* test = testTree->findMin(testTree->getRoot());
+	BST<status_node> *statusTree = new BST<status_node>();
 	auto start = std::chrono::system_clock::now();
-	Point testPoint = Point{ 0,0 };
 	while (!info.testQueue.empty())
 	{
 		auto p = info.testQueue.begin();
-		//if (p->parent != nullptr && p->parent->ID == 17) {
-		//	int YOLO = -1;
-		//}
-		//while (!info.testQueue.empty() && p->parent != nullptr && p->parent->ID == 10) {
-		//	info.testQueue.erase(info.testQueue.begin());
-		//	p = info.testQueue.begin();
-		//}
-		if (p == info.testQueue.end()) {
-			break;
+		if (p->parent!=nullptr && p->parent->ID == 10) {
+			info.testQueue.erase(p);
+			p = info.testQueue.begin();
 		}
-		if (p->isSnijpunt) {
-			if (!p->isRaakpunt) {
-				if (p->hc1->ID == 39 && p->hc2->ID == 44 || p->hc1->ID == 44 && p->hc2->ID == 39) {
+		sweepX = roundf(p->x * precision) / precision;
+		if (p->isEdgePointCircle) {
+			if (p->isLeft) {
+				if (p->parent->ID == 5) {
 					int YOLO = -1;
 				}
-				auto p1 = p->hc1->mapRef;
-				auto p2 = p->hc2->mapRef;
-				auto nextp1 = std::prev(*p1, 1);
-				auto prevp2 = std::next(*p2, 1);
-				if (p->hc1->ID == 17 && p->hc2->ID == 3) {
-					int YOLO = -1;
+
+				sweepX = roundf((p->x - 10.0f / precision) * precision)/precision;
+				auto HCU = statusTree->add(status_node{ p->parent->upperCircle,p->x });
+				sweepX = roundf(p->x * precision) / precision;
+
+				auto lowerHCU = statusTree->findPredecessor(HCU);
+				auto upperHCU = statusTree->findSuccessor(HCU);
+
+				if (upperHCU != nullptr) {
+					calculateIntersectionPoints(upperHCU->value.sc, HCU->value.sc, &info, p->x);
+				}
+
+				if (lowerHCU != nullptr) {
+					calculateIntersectionPoints(lowerHCU->value.sc, HCU->value.sc, &info, p->x);
+				}
+
+				sweepX = roundf((p->x - 10.0f / precision) * precision) / precision;
+				auto HCL = statusTree->add(status_node{  p->parent->lowerCircle ,p->x  });
+				sweepX = roundf(p->x * precision) / precision;
+
+				auto lowerHCL = statusTree->findPredecessor(HCL);
+				auto upperHCL = statusTree->findSuccessor(HCL);
+
+				if (lowerHCL != nullptr) {
+					calculateIntersectionPoints(HCL->value.sc, lowerHCL->value.sc, &info, p->x);
+				}
+
+				if (upperHCL != nullptr) {
+					calculateIntersectionPoints(HCL->value.sc, upperHCL->value.sc, &info, p->x);
+				}
+
+				if (lowerHCU != nullptr) {
+					calculateIntersectionPoints(HCL->value.sc, lowerHCU->value.sc, &info, p->x);
+				}
+
+				if (upperHCU != nullptr) {
+					calculateIntersectionPoints(HCL->value.sc, upperHCU->value.sc, &info, p->x);
+				}
+
+				
+				if (lowerHCL != nullptr) {
+					calculateIntersectionPoints(HCU->value.sc, lowerHCL->value.sc, &info, p->x);
+				}
+
+				if (upperHCL != nullptr) {
+					calculateIntersectionPoints(HCU->value.sc, upperHCL->value.sc, &info, p->x);
+				}
+
+				if (upperHCU != nullptr) {
+					calculateIntersectionPoints(upperHCU->value.sc, HCU->value.sc, &info, p->x);
+				}
+
+				if (lowerHCU != nullptr) {
+					calculateIntersectionPoints(lowerHCU->value.sc, HCU->value.sc, &info, p->x);
 				}
 				
-				//if (nextp1 != *p2) {
-				//	std::swap(p1,p2);
-				//}
-				if (nextp1!=T.end() && prevp2!=T.end() && nextp1->second->parent->ID == (*p2)->second->ID && prevp2->second->parent->ID == (*p1)->second->ID) {
-					std::swap(p1, p2);
-					nextp1 = std::prev(*p1, 1);
-					prevp2 = std::next(*p2, 1);
-				}
-
-				if (nextp1!=T.end()) {
-					auto testKey = nextp1;
-					bool bFound = false;
-					while (testKey != T.end() && testKey->first <= p->y) {
-						bFound = true;
-						testKey = std::prev(testKey);
-					}
-					if (bFound && testKey!=*p2) {
-						if (testKey!=T.end()) {
-							testKey = std::next(testKey);
-						}
-						else {
-							testKey = T.begin();
-						}
-						while (testKey!=*p1 && testKey!=*p2) {
-							auto temp = T.insert(std::pair<double, HalfCircle*>(roundf(p->y*precision) / precision, (testKey)->second));
-							temp->second->mapRef = new auto (temp);
-							auto deleteKey = testKey;
-							testKey = std::next(testKey);
-							T.erase(deleteKey);
-						}
-					}
-				}
-				auto testKey = prevp2;
-				bool bFound = false;
-				if (prevp2 != T.end()) {
-					while (testKey != T.end() && testKey->first >= p->y) {
-						bFound = true;
-						testKey = std::next(testKey);
-					}
-				}
-				//if (bFound) {
-				//	testKey = std::prev(testKey);
-				//	while (testKey != *p2) {
-				//		auto temp = T.insert(std::pair<double, HalfCircle*>(roundf(p->y*precision) / precision, (testKey)->second));
-				//		temp->second->mapRef = new auto (temp);
-				//		auto deleteKey = testKey;
-				//		testKey = std::prev(testKey);
-				//		T.erase(deleteKey);
-				//	}
-				//}
-
-				//auto poc2 = T.insert(std::pair<double, HalfCircle*>(p->y, p->hc2));
-				//auto poc1 = T.insert(std::pair<double, HalfCircle*>(p->y, p->hc1));
-				auto poc1 = T.insert(std::pair<double, HalfCircle*>(roundf(p->y*precision) / precision, (*p2)->second));
-				auto poc2 = T.insert(std::pair<double, HalfCircle*>(roundf(p->y*precision)/precision, (*p1)->second));
-
-				poc2->second->mapRef = new std::multimap<double, HalfCircle*>::iterator(poc2);
-				poc1->second->mapRef = new std::multimap<double, HalfCircle*>::iterator(poc1);
-				
-				if (bFound) {
-					testKey = std::prev(testKey);
-					while (testKey != *p2 && testKey != *p1) {
-						if (testKey == poc1) {
-							testKey = std::prev(testKey);
-							continue;
-						}
-						if (testKey == poc2) {
-							testKey = std::prev(testKey);
-							continue;
-						}
-						auto tempFix = std::prev(testKey);
-						if (tempFix != *p2) {
-							while (tempFix != *p2) {
-								tempFix = std::prev(tempFix);
-							}
-							tempFix = std::next(tempFix);
-							auto temp = T.insert(std::pair<double, HalfCircle*>(roundf(p->y*precision) / precision, (tempFix)->second));
-							temp->second->mapRef = new auto (temp);
-							auto deleteKey = tempFix;
-							//testKey = std::prev(tempFix);
-							T.erase(deleteKey);
-							continue;
-						}
-
-						auto temp = T.insert(std::pair<double, HalfCircle*>(roundf(p->y*precision) / precision, (testKey)->second));
-						temp->second->mapRef = new auto (temp);
-						auto deleteKey = testKey;
-						testKey = std::prev(testKey);
-						T.erase(deleteKey);
-					}
-				}
-
-				T.erase(*p1);
-				T.erase(*p2);
-
-				auto test = std::prev(poc1);
-				if (test != T.end() && test->second->parent->ID == poc1->second->parent->ID) {
-					if (!test->second->bIsUpper) {
-						auto bu = poc1->second;
-						poc1->second = test->second;
-						poc1->second->mapRef = new auto(poc1);
-						test->second = bu;
-						test->second->mapRef = new auto(test);
-						poc1 = test;
-						test = std::prev(test);
-					}
-				}
-				test = std::prev(poc2);
-				while (test != T.end() && test != poc1) {
-					auto bu = poc2->second;
-					poc2->second = test->second;
-					poc2->second->mapRef = new auto(poc2);
-					test->second = bu;
-					test->second->mapRef = new auto(test);
-					poc2 = test;
-					test = std::prev(test);
-				}
-
-
-
-				auto p1Upper = poc1 != T.end() ? std::prev(poc1, 1) : T.end();
-				auto p2Lower = poc2 != T.end() ? std::next(poc2, 1) : T.end();
-
-				if (p1Upper != T.end()) {
-					calculateIntersectionPoints(p1Upper->second, poc1->second, &info, p->x);
-				}
-				if (p2Lower != T.end()) {
-					calculateIntersectionPoints(poc2->second, p2Lower->second, &info, p->x);
-				}
-			}
-		}
-		if (p->isEdgePointCircle && p->isLeft) { //Is left?
-			if (T.size() == 0) {
-				auto p1 = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, p->parent->upperCircle));
-				p1->second->mapRef = new std::multimap<double, HalfCircle*>::iterator(p1);
-
-				auto p2 = T.insert(std::pair<double, HalfCircle*>(roundf( (p->parent->center.y ) * precision) / precision, p->parent->lowerCircle));
-				p2->second->mapRef = new std::multimap<double, HalfCircle*>::iterator(p2);
 			}
 			else {
-				if (p->parent->ID == 12) {
+				sweepX = roundf((p->x - 0.0f / precision) * precision) / precision;
+
+				auto node1 = statusTree->search(status_node{p->parent->upperCircle ,sweepX });
+				auto node2 = statusTree->search(status_node{p->parent->lowerCircle ,sweepX });
+
+				if (node1 == nullptr || node2 == nullptr) {
 					int YOLO = -1;
 				}
-				testPoint.x = p->x;
-				testPoint.y = p->y;
-				auto p1 = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision,p->parent->upperCircle));
-				p1->second->mapRef = new auto(p1);
-				auto p1Upper = std::prev(p1);
-				auto p1Lower = std::next(p1);
-				if (p1Upper!=T.end() && !p1Upper->second->bIsUpper && isIn(&testPoint, p1Upper->second)) {
-					auto testUpper = std::prev(p1Upper);
-					while(testUpper != T.end() && !testUpper->second->bIsUpper && isIn(&testPoint, testUpper->second)) {
-						testUpper = std::prev(testUpper);
-					}
-					testUpper = std::next(testUpper);
-					auto temp = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, testUpper->second));
-					temp->second->mapRef = new auto(temp);
-					T.erase(testUpper);
-					testUpper = std::prev(p1);
-					while (!testUpper->second->bIsUpper && isIn(&testPoint, testUpper->second)) //p1Upper!=T.end() should be impossible
-					{
-						testUpper = std::prev(testUpper);
-						while (testUpper != T.end() && !testUpper->second->bIsUpper && isIn(&testPoint, testUpper->second)) {
-							testUpper = std::prev(testUpper);
-						}
-						testUpper = std::next(testUpper);
-						auto temp = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, testUpper->second));
-						temp->second->mapRef = new auto(temp);
-						T.erase(testUpper);
-						testUpper = std::prev(p1);
-					}
-					p1Upper = std::prev(p1);
-				}
-				else if (p1Lower != T.end() && p1Lower->second->bIsUpper && isIn(&testPoint, p1Lower->second)) {
-					auto temp = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, p1Lower->second));
-					temp->second->mapRef = new auto(temp);
-					T.erase(p1Lower);
-					auto bu = temp->second;
-					temp->second = p1->second;
-					temp->second->mapRef = new auto(temp);
-					p1->second = bu;
-					p1->second->mapRef = new auto(p1);
-					p1 = temp;
-					p1Lower = std::next(p1);
-					while (p1Lower->second->bIsUpper && isIn(&testPoint, p1Lower->second)) //p1Lower!=T.end() should be impossible
-					{
-						auto temp = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, p1Lower->second));
-						temp->second->mapRef = new auto(temp);
-						T.erase(p1Lower);
-						auto bu = temp->second;
-						temp->second = p1->second;
-						temp->second->mapRef = new auto(temp);
-						p1->second = bu;
-						p1->second->mapRef = new auto(p1);
-						p1 = temp;
-						p1Lower = std::next(p1);
-					}
-				}
-				p1Upper = std::prev(p1);
-				p1Lower = std::next(p1);
-				if ((p1Upper == T.end() || p1Lower == T.end()) || (p1Upper->second->ID != p1Lower->second->ID)) {
-					while (p1Lower != T.end() && !p1Lower->second->bIsUpper && !isIn(&testPoint, p1Lower->second)) {
-						auto temp = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, p1Lower->second));
-						T.erase(p1Lower);
-						auto bu = temp->second;
-						temp->second = p1->second;
-						temp->second->mapRef = new auto(temp);
-						p1->second = bu;
-						p1->second->mapRef = new auto(p1);
-						p1 = temp;
-						p1Lower = std::next(p1);
-					}
-				}
-				if (p1Upper != T.end() && p1Upper->second->bIsUpper && !isIn(&testPoint, p1Upper->second) && (p1Lower != T.end() && !isIn(&testPoint, p1Lower->second))) {
-					auto testHigher = std::prev(p1Upper);
-					while (testHigher!= T.end() && testHigher->second->bIsUpper && isIn(&testPoint,testHigher->second)) {
-						/*while (testHigher != T.end() && testHigher->second->bIsUpper && isIn(&testPoint, testHigher->second)) {
-							testHigher = std::prev(testHigher);
-						}*/
-						testHigher = std::next(testHigher);
-						auto temp = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, testHigher->second));
-						T.erase(testHigher);
-						temp->second->mapRef = new auto(temp);
-						p1Upper = std::prev(p1);
-						if (!(p1Upper != T.end() && p1Upper->second->bIsUpper && !isIn(&testPoint, p1Upper->second))) {
-							break;
-						}
-						else {
-							int YOLO = -1;
-						}
-					}
-				}
 
-				p1Upper = std::prev(p1);
-				p1Lower = std::next(p1);
-				if (p1Upper != T.end()) {
-					calculateIntersectionPoints(p1Upper->second, p1->second, &info, p->x);
-				}
-				if (p1Lower != T.end()) {
-					calculateIntersectionPoints(p1->second, p1Lower->second, &info, p->x);
-				}
+				sweepX = roundf((p->x + 0.0f/precision) * precision) / precision;
+				auto upper = statusTree->findSuccessor(node1);
+				auto lower = statusTree->findPredecessor(node2);
 
-				auto p2 = T.insert(std::pair<double, HalfCircle*>(roundf((p->parent->center.y) * precision) / precision, p->parent->lowerCircle));
-				p2->second->mapRef = new auto(p2);
-				auto p2Upper = std::prev(p2);
-				while (p2Upper != p1) {
-					auto bu = p2Upper->second;
-					p2Upper->second = p2->second;
-					p2Upper->second->mapRef = new auto(p2Upper);
-					p2->second = bu;
-					p2->second->mapRef = new auto(p2);
-					p2 = p2Upper;
-					p2Upper = std::prev(p2);
+				if (upper!=nullptr && lower != nullptr) {
+					calculateIntersectionPoints(lower->value.sc, upper->value.sc, &info, p->x);
 				}
-
-				p1Upper = std::prev(p1);
-				auto p2Lower = std::next(p2);
-
-				if (p1Upper != T.end()) {
-					//calculateIntersectionPoints(*p1Upper->second, *p1->second, info, p->x);
-				}
-
-				if (p2Lower != T.end()) {
-					calculateIntersectionPoints(p2->second, p2Lower->second, &info, p->x);
-				}
+				
+				auto status = statusTree->deleteValue(status_node{ p->parent->upperCircle });
+				auto status2 = statusTree->deleteValue(status_node{ p->parent->lowerCircle });
 			}
-
 		}
-		if (p->isEdgePointCircle && !p->isLeft) { //Is Right?
-			if (p->parent->ID == 1) {
-				int YOLO = -1;
-			}
-			auto upperUp = std::prev(*p->parent->upperCircle->mapRef, 1);
-			auto upperLow = std::next(*p->parent->upperCircle->mapRef, 1);
+		else if(p->isSnijpunt && !p->isRaakpunt){
+			/*std::cout << "****START*****" << std::endl;
+			statusTree->print();
+			std::cout << "****END*****" << std::endl;*/
 
-			auto lowerUp = std::prev(*p->parent->lowerCircle->mapRef, 1);
-			auto lowerLow = std::next(*p->parent->lowerCircle->mapRef, 1);
+			sweepX = roundf((p->x - 10.0f / precision) * precision) / precision;
+			//sweepX = p->x - 10.0f/precision;
 
-			if (upperUp != T.end() && upperLow != T.end()) {
-				calculateIntersectionPoints(*upperUp->second, *upperLow->second, info, p->x);
-			}
+			auto hc1 = p->hc1;
+			auto hc2 = p->hc2;
 
-			if (lowerUp != T.end() && lowerLow != T.end()) {
-				calculateIntersectionPoints(*lowerUp->second, *lowerLow->second, info, p->x);
-			}
+			auto node1 = statusTree->search({ hc1 , sweepX });
+			auto node2 = statusTree->search({ hc2 , sweepX });
 
-			if (upperUp != T.end() && lowerLow != T.end()) {
-				calculateIntersectionPoints(*upperUp->second, *lowerLow->second, info, p->x);
+			if (calcY(node2->value.sc) > calcY(node1->value.sc)) {
+				hc1 = p->hc2;
+				hc2 = p->hc1;
 			}
 
-			if (upperLow != T.end() && lowerUp != T.end()) {
-				calculateIntersectionPoints(*upperLow->second, *lowerUp->second, info, p->x);
+			statusTree->deleteValue({ hc2 , sweepX });
+			statusTree->deleteValue({ hc1 , sweepX });
+
+			
+			sweepX = roundf((p->x + 10.0f / precision) * precision) / precision;
+			node1 = statusTree->add(status_node{ hc2,p->x });
+			//sweepX = roundf((p->x + 10.0f / precision) * precision) / precision;
+			node2 = statusTree->add(status_node{ hc1,p->x });
+
+			sweepX = roundf((p->x - 0.0f/precision) * precision) / precision;
+			auto upper = statusTree->findSuccessor(node1);
+			sweepX = roundf((p->x + 0.0f/precision) * precision) / precision;
+			auto lower = statusTree->findPredecessor(node2);
+
+			if (upper!= nullptr) {
+				calculateIntersectionPoints(node2->value.sc, upper->value.sc, &info, p->x);
 			}
-			//T.erase(*p->parent->lowerCircle->mapRef);
-			T.erase(*p->parent->lowerCircle->mapRef);
-			T.erase(*p->parent->upperCircle->mapRef);
+			if (lower != nullptr) {
+				calculateIntersectionPoints(node1->value.sc, lower->value.sc, &info, p->x);
+			}
+			if (upper != nullptr) {
+				calculateIntersectionPoints(node1->value.sc, upper->value.sc, &info, p->x);
+			}
+			if (lower != nullptr) {
+				calculateIntersectionPoints(node2->value.sc, lower->value.sc, &info, p->x);
+			}
+			//std::cout << "****START*****" << std::endl;
+			//statusTree->print();
+			//std::cout << "****END*****" << std::endl;
 		}
-		info.testQueue.erase(info.testQueue.begin());
+
+		/*std::cout << "****START*****" << std::endl;
+		statusTree->print();
+		std::cout << "****END*****" << std::endl;*/
+		sweepX = p->x;
+		info.testQueue.erase(p);
 	}
-
+	//statusTree->print();
 	auto end = std::chrono::system_clock::now();
 	info.milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 	info.nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
