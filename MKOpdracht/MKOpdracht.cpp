@@ -49,36 +49,15 @@ struct Point {
 	{
 		return roundf(p2.x*precision) / precision == roundf(this->x*precision) / precision &&
 			roundf(p2.y*precision) / precision == roundf(this->y*precision) / precision;
-		//return std::fabs(p2.x - x) < 0.000001 && 
-		//				std::fabs(p2.y - y) < 0.000001;
 	}
-
-	//bool operator<(const Point& p2) const
-	//{
-	//	return x < p2.x;
-	//}
-
-	//bool operator()(const Point& p1, const Point& p2) const {
-	//	return std::tie(p1.x, p1.y) > std::tie(p2.x, p2.y);
-	//}
 };
 
 struct testComp {
 	bool operator()(const Point& p1, const Point& p2) {
 		if (roundf(p1.x*precision)/precision == roundf(p2.x * precision) / precision) {
-			//if (p1.isSnijpunt && p2.isSnijpunt) {
-			//	return false;
-			//}
-			//if (p1.isSnijpunt && !p2.isSnijpunt) {
-			//	return false;
-			//}
-			//if (!p1.isSnijpunt && p2.isSnijpunt) {
-			//	//return true;
-			//}
 			return p1.y > p2.y;
 		}
 		return p1.x < p2.x;
-		//return a.x == b.x ? a.y<b.y : a.x>b.x;
 	}
 };
 
@@ -87,8 +66,6 @@ class MyHashFunction {
 public:
 	size_t operator()(const Point& p	) const
 	{
-		//return (std::hash<double>()(p.x)) ^ (std::hash<double>()(p.y));
-		//return (std::hash<double>()(p.x*10000000)) ^ (std::hash<double>()(p.y));
 		return (std::hash<double>()(roundf(p.x*precision) / precision*100000  + roundf(p.y*precision) / precision));
 	}
 };
@@ -101,7 +78,6 @@ inline bool operator< (const Point& lhs, const Point& rhs) {
 struct HalfCircle {
 	bool bIsUpper = true;
 	struct Circle *parent;
-	std::multimap<double, HalfCircle*>::iterator *mapRef;
 	int status_pos = -1;
 	int ID;
 };
@@ -116,8 +92,6 @@ struct Circle {
 	std::set<int> intersectsWith;
 	struct HalfCircle* upperCircle;
 	struct HalfCircle* lowerCircle;
-	//std::multimap<double, HalfCircle*>::iterator *mapRefUpper;
-	//std::multimap<double, HalfCircle*>::iterator *mapRefLower;
 
 	bool operator==(const Circle& c2)
 	{
@@ -138,11 +112,8 @@ struct InputInfo {
 
 	std::multimap<double, Circle*> circleEventPoints;
 	std::multimap<double, Circle*> activeCirclesTest;
-	std::multimap<double, Point*> circleEventPointsLogN;
-	//std::multimap<Point, std::vector<Point>, testComp> testQueue;
 	std::multiset<Point, testComp> testQueue;
-	//std::unordered_multiset<Point, testComp> testQueue;
-	//std::priority_queue<double, std::vector<Point*>, std::greater<double>> QLog2;
+
 
 	std::multimap<double, HalfCircle*> halfCircles;
 
@@ -152,12 +123,6 @@ struct InputInfo {
 	std::chrono::milliseconds milliseconds;
 	std::chrono::nanoseconds nanoseconds;
 };
-
-//struct cmpPoints {
-//	bool operator()(const Point& p1, const Point& p2) const {
-//		return std::tie(p1.x, p1.y) < std::tie(p2.x, p2.y);
-//	}
-//};
 
 struct OutputInfo {
 	std::vector<Point> intersection_points = std::vector<Point>();
@@ -175,11 +140,7 @@ InputInfo input_circles;
 InputInfo test_input_circles_1;
 InputInfo test_input_circles_2;
 InputInfo test_input_circles_3;
-InputInfo test_input_circles_4;
 #endif // _DEBUG
-
-
-
 
 //This is a function prototype, to be able to use it later.
 InputInfo openAndReadFile(char*& path);
@@ -188,7 +149,6 @@ void calculateIntersectionPoints(struct Circle& c1, struct Circle& c2, std::unor
 
 void n_kwadraat_easy(InputInfo& ii);
 void n_kwadraat_sweepline(InputInfo& ii);
-void n_log_n_sweepline2(InputInfo& ii);
 void n_log_n_sweepline3(InputInfo& ii);
 
 int main(int argc, char **argv)
@@ -241,11 +201,6 @@ int main(int argc, char **argv)
 	std::cout << "Algorithm 3, Test circles: " << test_input_circles_3.num_circles << std::endl;
 	std::cout << "ms: " << test_input_circles_3.milliseconds.count() << std::endl;
 	std::cout << "Found: " << test_input_circles_3.intersectionPoints.size() << " intersections" << std::endl << std::endl;
-
-	//n_log_n_sweepline(test_input_circles_4);
-	//std::cout << "Algorithm 3, Test circles: " << test_input_circles_4.num_circles << std::endl;
-	//std::cout << "ms: " << test_input_circles_4.milliseconds.count() << std::endl;
-	//std::cout << "Found: " << test_input_circles_4.intersectionPoints.size() << " intersections" << std::endl << std::endl;
 
 	int notFoundCount = 0;
 	int raakpunten = 0;
@@ -356,8 +311,6 @@ InputInfo openAndReadFile(char*& path) {
 			eventPointRight->y = roundf(y * precision) / precision;
 			eventPointRight->x = roundf((x + r) * precision) / precision;
 			eventPointRight->isLeft = false;
-			inputInfo.circleEventPointsLogN.insert(std::pair<double, Point*>(eventPointLeft->x, eventPointLeft));
-			inputInfo.circleEventPointsLogN.insert(std::pair<double, Point*>(eventPointRight->x, eventPointRight));
 			inputInfo.testQueue.emplace(*eventPointLeft);
 			inputInfo.testQueue.emplace(*eventPointRight);
 		}
@@ -444,132 +397,11 @@ InputInfo openAndReadFile(char*& path) {
 			eventPointRight->y = y;
 			eventPointRight->x = x + r;
 			eventPointRight->isLeft = false;
-			test_input_circles_3.circleEventPointsLogN.insert(std::pair<double, Point*>(eventPointLeft->x, eventPointLeft));
-			test_input_circles_3.circleEventPointsLogN.insert(std::pair<double, Point*>(eventPointRight->x, eventPointRight));
 			test_input_circles_3.testQueue.emplace(*eventPointLeft);
 			test_input_circles_3.testQueue.emplace(*eventPointRight);
 			//test_input_circles_3.QLog2.push(eventPointLeft);
 			//test_input_circles_3.QLog2.push(eventPointRight);
 		}
-
-		test_input_circles_4 = { 3, 3, std::vector<Circle>(3) };
-		//int i = 0;
-		//r = 0.5;
-		//x = 0;
-		//y = 0;
-		int i = 0;
-		r = 0.5;
-		x = 0.0;
-		y = 0;
-		test_input_circles_4.circles[i] = { i, {x,y}, r,x - r,x + r };
-		test_input_circles_4.circles[i].lowerCircle = new HalfCircle{ false, &test_input_circles_4.circles[i] };
-		test_input_circles_4.circles[i].upperCircle = new HalfCircle{ true, &test_input_circles_4.circles[i] };
-		test_input_circles_4.circleEventPoints.insert(std::pair<double, Circle*>(test_input_circles_4.circles[i].leftX, &test_input_circles_4.circles[i]));
-		test_input_circles_4.circleEventPoints.insert(std::pair<double, Circle*>(test_input_circles_4.circles[i].rightX, &test_input_circles_4.circles[i]));
-
-		Point* eventPointLeft = new Point;
-		eventPointLeft->isEdgePointCircle = true;
-		eventPointLeft->parent = &test_input_circles_4.circles[i];
-		eventPointLeft->y = y;
-		eventPointLeft->x = x - r;
-
-		Point* eventPointRight = new Point;
-		eventPointRight->isEdgePointCircle = true;
-		eventPointRight->parent = &test_input_circles_4.circles[i];
-		eventPointRight->y = y;
-		eventPointRight->x = x + r;
-		eventPointRight->isLeft = false;
-		test_input_circles_4.circleEventPointsLogN.insert(std::pair<double, Point*>(eventPointLeft->x, eventPointLeft));
-		test_input_circles_4.circleEventPointsLogN.insert(std::pair<double, Point*>(eventPointRight->x, eventPointRight));
-		test_input_circles_4.testQueue.emplace(*eventPointLeft);
-		test_input_circles_4.testQueue.emplace(*eventPointRight);
-
-		//i = 1;
-		//r = 0.5;
-		//x = 0.8;
-		//y = 0;
-		i = 1;
-		r = 0.5;
-		x = 0.8;
-		y = 0;
-		test_input_circles_4.circles[i] = { i, {x,y}, r,x - r,x + r };
-		test_input_circles_4.circles[i].lowerCircle = new HalfCircle{ false, &test_input_circles_4.circles[i] };
-		test_input_circles_4.circles[i].upperCircle = new HalfCircle{ true, &test_input_circles_4.circles[i] };
-		test_input_circles_4.circleEventPoints.insert(std::pair<double, Circle*>(test_input_circles_4.circles[i].leftX, &test_input_circles_4.circles[i]));
-		test_input_circles_4.circleEventPoints.insert(std::pair<double, Circle*>(test_input_circles_4.circles[i].rightX, &test_input_circles_4.circles[i]));
-
-		eventPointLeft = new Point;
-		eventPointLeft->isEdgePointCircle = true;
-		eventPointLeft->parent = &test_input_circles_4.circles[i];
-		eventPointLeft->y = y;
-		eventPointLeft->x = x - r;
-
-		eventPointRight = new Point;
-		eventPointRight->isEdgePointCircle = true;
-		eventPointRight->parent = &test_input_circles_4.circles[i];
-		eventPointRight->y = y;
-		eventPointRight->x = x + r;
-		eventPointRight->isLeft = false;
-		test_input_circles_4.circleEventPointsLogN.insert(std::pair<double, Point*>(eventPointLeft->x, eventPointLeft));
-		test_input_circles_4.circleEventPointsLogN.insert(std::pair<double, Point*>(eventPointRight->x, eventPointRight));
-		test_input_circles_4.testQueue.emplace(*eventPointLeft);
-		test_input_circles_4.testQueue.emplace(*eventPointRight);
-
-		//i = 2;
-		//r = 0.5;
-		//x = 0.4;
-		//y = 0;
-		i = 2;
-		r = 0.5;
-		x = 1.6;
-		y = 0;
-		test_input_circles_4.circles[i] = { i, {x,y}, r,x - r,x + r };
-		test_input_circles_4.circles[i].lowerCircle = new HalfCircle{ false, &test_input_circles_4.circles[i] };
-		test_input_circles_4.circles[i].upperCircle = new HalfCircle{ true, &test_input_circles_4.circles[i] };
-		test_input_circles_4.circleEventPoints.insert(std::pair<double, Circle*>(test_input_circles_4.circles[i].leftX, &test_input_circles_4.circles[i]));
-		test_input_circles_4.circleEventPoints.insert(std::pair<double, Circle*>(test_input_circles_4.circles[i].rightX, &test_input_circles_4.circles[i]));
-
-		eventPointLeft = new Point;
-		eventPointLeft->isEdgePointCircle = true;
-		eventPointLeft->parent = &test_input_circles_4.circles[i];
-		eventPointLeft->y = y;
-		eventPointLeft->x = x - r;
-
-		eventPointRight = new Point;
-		eventPointRight->isEdgePointCircle = true;
-		eventPointRight->parent = &test_input_circles_4.circles[i];
-		eventPointRight->y = y;
-		eventPointRight->x = x + r;
-		eventPointRight->isLeft = false;
-		test_input_circles_4.circleEventPointsLogN.insert(std::pair<double, Point*>(eventPointLeft->x, eventPointLeft));
-		test_input_circles_4.circleEventPointsLogN.insert(std::pair<double, Point*>(eventPointRight->x, eventPointRight));
-		test_input_circles_4.testQueue.emplace(*eventPointLeft);
-		test_input_circles_4.testQueue.emplace(*eventPointRight);
-
-	/*	i = 3;
-		r = 1.0;
-		x = 0.8;
-		y = 0.5;
-		test_input_circles_4.circles[i] = { i, {x,y}, r,x - r,x + r };
-		test_input_circles_4.circles[i].lowerCircle = new HalfCircle{ false, &test_input_circles_4.circles[i] };
-		test_input_circles_4.circles[i].upperCircle = new HalfCircle{ true, &test_input_circles_4.circles[i] };
-		test_input_circles_4.circleEventPoints.insert(std::pair<double, Circle*>(test_input_circles_4.circles[i].leftX, &test_input_circles_4.circles[i]));
-		test_input_circles_4.circleEventPoints.insert(std::pair<double, Circle*>(test_input_circles_4.circles[i].rightX, &test_input_circles_4.circles[i]));
-
-		eventPointLeft = new Point;
-		eventPointLeft->isEdgePointCircle = true;
-		eventPointLeft->parent = &test_input_circles_4.circles[i];
-		eventPointLeft->y = y;
-		eventPointLeft->x = x - r;
-
-		eventPointRight = new Point;
-		eventPointRight->isEdgePointCircle = true;
-		eventPointRight->parent = &test_input_circles_4.circles[i];
-		eventPointRight->y = y;
-		eventPointRight->x = x + r;
-		eventPointRight->isLeft = false;
-		test_input_circles_4.circleEventPointsLogN.insert(std::pair<double, Point*>(eventPointLeft->x, eventPointLeft));
-		test_input_circles_4.circleEventPointsLogN.insert(std::pair<double, Point*>(eventPointRight->x, eventPointRight));*/
 
 #endif
 
@@ -1025,7 +857,6 @@ void calculateIntersectionPoints(struct Circle* circle_1, struct Circle* circle_
 	//std::cout << "Intersection X, Y: " << intersection_point2.x << "," << intersection_point2.y << std::endl;
 }
 
-
 std::vector<Point> *temp = new std::vector<Point>;
 std::vector<Point> keepPoints;
 
@@ -1147,400 +978,6 @@ void n_kwadraat_sweepline(InputInfo& info) {
 	info.nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
 }
 
-bool isIn(Point &p, Circle &c) {
-	if (distanceCalculate(p,c.center) <= c.radius) {
-		return true;
-	}
-	return false;
-}
-
-bool isIn(Point *p, HalfCircle *c) {
-	if (c->bIsUpper) {
-		if (p->y < c->parent->center.y) {
-			return false;
-		}
-	}else 	if (!c->bIsUpper) {
-		if (p->y > c->parent->center.y) {
-			return false;
-		}
-	}
-	if (distanceCalculate(p, &c->parent->center) <= c->parent->radius) {
-		return true;
-	}
-	return false;
-}
-
-#define min(a,b) ((a)<(b)?(a):(b))
-#define max(a,b) ((a)>(b)?(a):(b))
-
-#define min(a,b) ((a)<(b)?(a):(b))
-#define max(a,b) ((a)>(b)?(a):(b))
-
-template <class T>
-struct Node {
-	T value;
-	Node *left = NULL;
-	Node *right = NULL;
-
-	Node(T val) {
-		this->value = val;
-	}
-
-	Node(T val, Node<T> left, Node<T> right) {
-		this->value = val;
-		this->left = left;
-		this->right = right;
-	}
-
-	inline bool operator>(const Node<T> &node) const {
-		return value > node.value;
-	}
-
-	inline bool operator<(const Node<T> &node) const {
-		return value < node.value;
-	}
-
-	inline bool operator>=(const Node<T> &node) const {
-		return value >= node.value;
-	}
-
-	inline bool operator<=(const Node<T> &node) const {
-		return value <= node.value;
-	}
-
-	inline bool operator==(const Node<T> &node) const {
-		return value == node.value;
-	}
-
-	//friend bool operator==(Node<T> const& lhs, Node<T> const& rhs) {
-	//	return lhs == rhs;
-	//}
-};
-
-template <class T>
-class BST {
-
-private:
-	Node<T> *root;
-
-	Node<T>* addHelper(Node<T> *root, T val) {
-		if (root->value > val) {
-			if (!root->left) {
-				return root->left = new Node<T>(val);
-			}
-			else {
-				return addHelper(root->left, val);
-			}
-		}
-		else {
-			if (!root->right) {
-				return root->right = new Node<T>(val);
-			}
-			else {
-				return addHelper(root->right, val);
-			}
-		}
-	}
-
-	void printHelper(Node<T> *root) {
-		if (!root) return;
-		printHelper(root->left);
-		std::cout << root->value << ' ';
-		printHelper(root->right);
-	}
-
-	int nodesCountHelper(Node<T> *root) {
-		if (!root) return 0;
-		else return 1 + nodesCountHelper(root->left) + nodesCountHelper(root->right);
-	}
-
-	int heightHelper(Node<T> *root) {
-		if (!root) return 0;
-		else return 1 + max(heightHelper(root->left), heightHelper(root->right));
-	}
-
-	void printMaxPathHelper(Node<T> *root) {
-		if (!root) return;
-		std::cout << root->value << ' ';
-		if (heightHelper(root->left) > heightHelper(root->right)) {
-			printMaxPathHelper(root->left);
-		}
-		else {
-			printMaxPathHelper(root->right);
-		}
-	}
-
-	bool deleteValueHelper(Node<T>* parent, Node<T>* current, T value) {
-		if (!current) return false;
-		if (current->value == value) {
-			if (current->left == NULL || current->right == NULL) {
-				Node<T>* temp = current->left;
-				if (current->right) temp = current->right;
-				if (parent) {
-					if (parent->left == current) {
-						parent->left = temp;
-					}
-					else {
-						parent->right = temp;
-					}
-				}
-				else {
-					this->root = temp;
-				}
-			}
-			else {
-				Node<T>* validSubs = current->right;
-				while (validSubs->left) {
-					validSubs = validSubs->left;
-				}
-				T temp = current->value;
-				current->value = validSubs->value;
-				validSubs->value = temp;
-				return deleteValueHelper(current, current->right, temp);
-			}
-			delete current;
-			return true;
-		}
-		return deleteValueHelper(current, current->left, value) ||
-			deleteValueHelper(current, current->right, value);
-	}
-
-	Node<T>* findValueHelper(Node<T>* parent, Node<T>* current, T value) {
-		if (current == NULL) return nullptr;
-		if (current->value == value) {
-			return current;
-		}
-		if (value > current->value) {
-			return findValueHelper(current, current->right, value);
-		}
-		else {
-			return findValueHelper(current, current->left, value);
-		}
-	}
-
-	Node<T>* searchHelper(Node<T>* parent, T value) {
-		if (parent == nullptr || parent->value == value) {
-			return parent;
-		}
-
-		if (parent->value < value)
-			return searchHelper(parent->right, value);
-
-		return searchHelper(parent->left, value);
-	}
-
-	Node<T>* findSuccesorHelper(Node<T>* parent, Node<T>* node) {
-		if (parent == nullptr) {
-			return nullptr;
-		}
-
-		if (node->right != nullptr) {
-			return findMin(node->right);
-		}
-
-		Node<T>* successor = nullptr;
-
-		while (parent!=nullptr) {
-			if (*node < *parent) {
-				successor = parent;
-				parent = parent->left;
-			}
-			else if (*node > *parent) {
-				parent = parent->right;
-			}
-			else {
-				break;
-			}
-		}
-
-		return successor;
-	}	
-
-	Node<T>* findSuccesorHelper2(Node<T>* parent, Node<T>* node) {
-		Node<T>* successor = nullptr;
-		while (true) {
-			if (*node < parent->value) {
-				successor = parent;
-				parent = parent->left;
-			}else if (*node > parent->value) {
-				parent = parent->right;
-			}
-			else {
-				if (parent->right) {
-					successor = findMin(parent->right);
-				}
-				break;
-			}
-
-			if (!parent) {
-				return nullptr;
-			}
-		}
-		return successor;
-	}
-
-	Node<T>* findMinHelper(Node<T>* node) {
-		while (node->left) {
-			node = node->left;
-		}
-		return node;
-	}
-
-	Node<T>* findMaxHelper(Node<T>* node) {
-		while (node->right) {
-			node = node->right;
-		}
-		return node;
-	}
-
-	Node<T>* findPredecessorHelper(Node<T>* root, Node<T>* node)
-	{
-		Node<T>* predecessor = nullptr;
-
-		if (root == nullptr) {
-			return predecessor;
-		}
-
-		while (root!=nullptr) {
-			if (*root == *node) {
-				if (root->left) {
-					predecessor = root->left;
-					while (predecessor->right)
-						predecessor = predecessor->right;
-				}
-
-				return predecessor;
-			}
-			else if (*root < *node) {
-				predecessor = root;
-				root = root->right;
-			}
-			else {
-				root = root->left;
-			}
-		}
-		return predecessor;
-	}
-
-	Node<T>* findPredecessorHelper2(Node<T>* parent, Node<T>* node) {
-		Node<T>* predecessor = NULL;
-		Node<T>* current = parent;
-
-		if (!root)
-			return NULL;
-
-		while (current && !(current->value == node->value)) {
-			if (current->value > node->value) {
-				current = current->left;
-			}
-			else {
-				predecessor = current;
-				current = current->right;
-			}
-		}
-		if (current && current->left) {
-			predecessor = findMaxHelper(current->left);
-		}
-		return predecessor;
-	}
-
-	void deepSearchHelper(Node<T>* parent,Node<T>*& node ,T value) {
-		if (parent == NULL) {
-			return;
-		}
-		if (parent->value == value) {
-			node = parent;
-			return;
-		}
-		if (node) {
-			return;
-		}
-		if (parent->left) {
-			deepSearchHelper(parent->left, node, value);
-		}
-		if (node) {
-			return;
-		}
-		if (parent->right) {
-			deepSearchHelper(parent->right, node, value);
-		}
-	}
-public:
-	Node<T>* add(T val) {
-		if (root) {
-			return this->addHelper(root, val);
-		}
-		else {
-			return root = new Node<T>(val);
-		}
-	}
-
-	void print() {
-		printHelper(this->root);
-	}
-
-	int nodesCount() {
-		return nodesCountHelper(root);
-	}
-
-	int height() {
-		return heightHelper(this->root);
-	}
-
-	void printMaxPath() {
-		printMaxPathHelper(this->root);
-	}
-
-	bool deleteValue(T value) {
-		return this->deleteValueHelper(NULL, this->root, value);
-	}
-
-	Node<T>* findMin(Node<T>* node) {
-		return findMinHelper(node);
-	}
-
-	Node<T>* findSuccessor(Node<T>* node) {
-		auto temp = findSuccesorHelper(root, node);
-		auto temp2 = findSuccesorHelper2(root, node);
-		if (temp!=temp2) {
-		//	return temp2;
-		}
-		return findSuccesorHelper(root, node);
-	}
-
-	Node<T>* findPredecessor(Node<T>* node) {
-		auto temp = findPredecessorHelper(root, node);
-		auto temp2 =findPredecessorHelper2(root, node);
-		if (temp!=temp2) {
-		//	return temp2;
-		}
-		return findPredecessorHelper(root, node);
-	}
-
-	Node<T>* findValue(T value) {
-		return this->findValueHelper(NULL, this->root, value);
-	}
-
-	Node<T>* search(T value) {
-		//auto temp = this->searchHelper(this->root, value);
-		if (this->root == NULL) {
-			return nullptr;
-		}
-		Node<T>* temp = nullptr;
-		if (temp == nullptr) {
-			deepSearchHelper(this->root, temp,value);
-			if (temp == nullptr) {
-				int YOLO = -1;
-			}
-		}
-		return temp;
-	}
-
-	Node<T>* getRoot() {
-		return root;
-	}
-};
-
 static double sweepX = 0.0;
 
 double calcY(HalfCircle* hc) {
@@ -1559,25 +996,6 @@ double calcY(HalfCircle* hc) {
 		return roundf((-sqrt(std::abs(roundf(pow(hc->parent->radius, 2)*precision) / precision - roundf(pow((sweepX - hc->parent->center.x), 2)*precision) / precision)) + hc->parent->center.y)*precision) / precision;
 	}
 }
-
-double calcY(HalfCircle* hc, double x) {
-	//(x-a)^2 + (y-b)^2 = r^2
-	//r^2 - (x-a)^2 = (y-b)^2
-	//UPPER:
-	//sqrt(R^2 - (x-a)^2) = y-b
-	//sqrt(R^2 - (x-a)^2) + b = y
-	//LOWER
-	//-sqrt(R^2 - (x-a)^2) = y-b
-	//-sqrt(R^2 - (x-a)^2)+b = y
-	if (hc->bIsUpper) {
-		return sqrt(pow(hc->parent->radius, 2) - pow((x - hc->parent->center.x), 2)) + hc->parent->center.y;
-	}
-	else {
-		return -sqrt(pow(hc->parent->radius, 2) - pow((x - hc->parent->center.x), 2)) + hc->parent->center.y;
-	}
-}
-
-const int halfPrecision = 1000;
 
 struct status_node {
 	HalfCircle* sc;
@@ -1627,181 +1045,6 @@ struct status_node {
 		return output;
 	}
 };
-
-void n_log_n_sweepline2(InputInfo& info) {
-	//BST<int> *testTree = new BST<int>();
-	//testTree->add(5);
-	//auto temp2 = testTree->add(4);
-	//auto temp3 = testTree->add(7);
-	//testTree->add(8);
-	//auto temp = testTree->add(8);
-	//testTree->add(9);
-	//testTree->add(2);
-	//testTree->add(60);
-	//testTree->add(39);
-	//testTree->add(10);
-	//testTree->add(-3);
-	//auto what = testTree->findValue(8);
-	//auto test2 = testTree->findSuccessor(temp2);
-	//auto test3 = testTree->findPredecessor(temp2);
-	////testTree->print();
-	//Node<int>* test = testTree->findMin(testTree->getRoot());
-	BST<status_node> *statusTree = new BST<status_node>();
-	auto start = std::chrono::system_clock::now();
-	while (!info.testQueue.empty())
-	{
-		auto p = info.testQueue.begin();
-		if (p->parent!=nullptr && p->parent->ID == 10) {
-			info.testQueue.erase(p);
-			p = info.testQueue.begin();
-		}
-		sweepX = roundf(p->x * precision) / precision;
-		if (p->isEdgePointCircle) {
-			if (p->isLeft) {
-				if (p->parent->ID == 5) {
-					int YOLO = -1;
-				}
-
-				sweepX = roundf((p->x - 10.0f / precision) * precision)/precision;
-				auto HCU = statusTree->add(status_node{ p->parent->upperCircle,p->x });
-				sweepX = roundf(p->x * precision) / precision;
-
-				auto lowerHCU = statusTree->findPredecessor(HCU);
-				auto upperHCU = statusTree->findSuccessor(HCU);
-
-				if (upperHCU != nullptr) {
-					calculateIntersectionPoints(upperHCU->value.sc, HCU->value.sc, &info, p->x);
-				}
-
-				if (lowerHCU != nullptr) {
-					calculateIntersectionPoints(lowerHCU->value.sc, HCU->value.sc, &info, p->x);
-				}
-
-				sweepX = roundf((p->x - 10.0f / precision) * precision) / precision;
-				auto HCL = statusTree->add(status_node{  p->parent->lowerCircle ,p->x  });
-				sweepX = roundf(p->x * precision) / precision;
-
-				auto lowerHCL = statusTree->findPredecessor(HCL);
-				auto upperHCL = statusTree->findSuccessor(HCL);
-
-				if (lowerHCL != nullptr) {
-					calculateIntersectionPoints(HCL->value.sc, lowerHCL->value.sc, &info, p->x);
-				}
-
-				if (upperHCL != nullptr) {
-					calculateIntersectionPoints(HCL->value.sc, upperHCL->value.sc, &info, p->x);
-				}
-
-				if (lowerHCU != nullptr) {
-					calculateIntersectionPoints(HCL->value.sc, lowerHCU->value.sc, &info, p->x);
-				}
-
-				if (upperHCU != nullptr) {
-					calculateIntersectionPoints(HCL->value.sc, upperHCU->value.sc, &info, p->x);
-				}
-
-				
-				if (lowerHCL != nullptr) {
-					calculateIntersectionPoints(HCU->value.sc, lowerHCL->value.sc, &info, p->x);
-				}
-
-				if (upperHCL != nullptr) {
-					calculateIntersectionPoints(HCU->value.sc, upperHCL->value.sc, &info, p->x);
-				}
-
-				if (upperHCU != nullptr) {
-					calculateIntersectionPoints(upperHCU->value.sc, HCU->value.sc, &info, p->x);
-				}
-
-				if (lowerHCU != nullptr) {
-					calculateIntersectionPoints(lowerHCU->value.sc, HCU->value.sc, &info, p->x);
-				}
-				
-			}
-			else {
-				sweepX = roundf((p->x - 0.0f / precision) * precision) / precision;
-
-				auto node1 = statusTree->search(status_node{p->parent->upperCircle ,sweepX });
-				auto node2 = statusTree->search(status_node{p->parent->lowerCircle ,sweepX });
-
-				if (node1 == nullptr || node2 == nullptr) {
-					int YOLO = -1;
-				}
-
-				sweepX = roundf((p->x + 0.0f/precision) * precision) / precision;
-				auto upper = statusTree->findSuccessor(node1);
-				auto lower = statusTree->findPredecessor(node2);
-
-				if (upper!=nullptr && lower != nullptr) {
-					calculateIntersectionPoints(lower->value.sc, upper->value.sc, &info, p->x);
-				}
-				
-				auto status = statusTree->deleteValue(status_node{ p->parent->upperCircle });
-				auto status2 = statusTree->deleteValue(status_node{ p->parent->lowerCircle });
-			}
-		}
-		else if(p->isSnijpunt && !p->isRaakpunt){
-			/*std::cout << "****START*****" << std::endl;
-			statusTree->print();
-			std::cout << "****END*****" << std::endl;*/
-
-			sweepX = roundf((p->x - 10.0f / precision) * precision) / precision;
-			//sweepX = p->x - 10.0f/precision;
-
-			auto hc1 = p->hc1;
-			auto hc2 = p->hc2;
-
-			auto node1 = statusTree->search({ hc1 , sweepX });
-			auto node2 = statusTree->search({ hc2 , sweepX });
-
-			if (calcY(node2->value.sc) > calcY(node1->value.sc)) {
-				hc1 = p->hc2;
-				hc2 = p->hc1;
-			}
-
-			statusTree->deleteValue({ hc2 , sweepX });
-			statusTree->deleteValue({ hc1 , sweepX });
-
-			
-			sweepX = roundf((p->x + 10.0f / precision) * precision) / precision;
-			node1 = statusTree->add(status_node{ hc2,p->x });
-			//sweepX = roundf((p->x + 10.0f / precision) * precision) / precision;
-			node2 = statusTree->add(status_node{ hc1,p->x });
-
-			sweepX = roundf((p->x - 0.0f/precision) * precision) / precision;
-			auto upper = statusTree->findSuccessor(node1);
-			sweepX = roundf((p->x + 0.0f/precision) * precision) / precision;
-			auto lower = statusTree->findPredecessor(node2);
-
-			if (upper!= nullptr) {
-				calculateIntersectionPoints(node2->value.sc, upper->value.sc, &info, p->x);
-			}
-			if (lower != nullptr) {
-				calculateIntersectionPoints(node1->value.sc, lower->value.sc, &info, p->x);
-			}
-			if (upper != nullptr) {
-				calculateIntersectionPoints(node1->value.sc, upper->value.sc, &info, p->x);
-			}
-			if (lower != nullptr) {
-				calculateIntersectionPoints(node2->value.sc, lower->value.sc, &info, p->x);
-			}
-			//std::cout << "****START*****" << std::endl;
-			//statusTree->print();
-			//std::cout << "****END*****" << std::endl;
-		}
-
-		/*std::cout << "****START*****" << std::endl;
-		statusTree->print();
-		std::cout << "****END*****" << std::endl;*/
-		sweepX = p->x;
-		info.testQueue.erase(p);
-	}
-	//statusTree->print();
-	auto end = std::chrono::system_clock::now();
-	info.milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-	info.nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-}
-
 
 template <class T>
 int BSearch(std::vector<T>* vec, T* value, int start, int end) {
