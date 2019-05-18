@@ -102,6 +102,7 @@ struct HalfCircle {
 	bool bIsUpper = true;
 	struct Circle *parent;
 	std::multimap<double, HalfCircle*>::iterator *mapRef;
+	int status_pos = -1;
 	int ID;
 };
 
@@ -188,6 +189,7 @@ void calculateIntersectionPoints(struct Circle& c1, struct Circle& c2, std::unor
 void n_kwadraat_easy(InputInfo& ii);
 void n_kwadraat_sweepline(InputInfo& ii);
 void n_log_n_sweepline2(InputInfo& ii);
+void n_log_n_sweepline3(InputInfo& ii);
 
 int main(int argc, char **argv)
 {
@@ -209,7 +211,7 @@ int main(int argc, char **argv)
 		n_kwadraat_sweepline(input_circles);
 		break;
 	case 3:
-		n_log_n_sweepline2(input_circles);
+		n_log_n_sweepline3(input_circles);
 		break;
 	default:
 		break;
@@ -235,7 +237,7 @@ int main(int argc, char **argv)
 	std::cout << "ms: " << test_input_circles_2.milliseconds.count() << std::endl;
 	std::cout << "Found: " << test_input_circles_2.intersectionPoints.size() << " intersections" << std::endl << std::endl;
 
-	n_log_n_sweepline2(test_input_circles_3);
+	n_log_n_sweepline3(test_input_circles_3);
 	std::cout << "Algorithm 3, Test circles: " << test_input_circles_3.num_circles << std::endl;
 	std::cout << "ms: " << test_input_circles_3.milliseconds.count() << std::endl;
 	std::cout << "Found: " << test_input_circles_3.intersectionPoints.size() << " intersections" << std::endl << std::endl;
@@ -325,11 +327,7 @@ InputInfo openAndReadFile(char*& path) {
 		for (auto i = 0; i < numCircles; i++)
 		{
 			file >> x >> y >> r;
-			/*float r2 = static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (10000.0f / precision)));
-			x *= (1.0 + r2);
-			y *= (1.0 + r2);
-			x = roundf(x * precision) / precision;
-			y = roundf(y * precision) / precision;*/
+
 			x = roundf(x*precision) / precision;
 			y = roundf(y*precision) / precision;
 			r = roundf(r*precision) / precision;
@@ -387,8 +385,8 @@ InputInfo openAndReadFile(char*& path) {
 			y = rand() % region;
 			r = rand() % maxRadius / 5.0 + 0.5;
 
-			//x *= (1.0 + doubleRand());
-			//y *= (1.0 + doubleRand());
+			x *= (1.0 + doubleRand());
+			y *= (1.0 + doubleRand());
 			x = roundf(x * precision) / precision;
 			y = roundf(y * precision) / precision;
 			r = roundf(r * precision) / precision;
@@ -1590,11 +1588,11 @@ struct status_node {
 	}
 
 	friend bool operator>(status_node const& lhs, status_node const& rhs) {
-		auto y1 = roundf(calcY(lhs.sc) * precision ) / precision;
-		auto y2 = roundf(calcY(rhs.sc) * precision) / precision;
+		auto y1 = roundf(calcY(lhs.sc) * sqrt(precision) ) / sqrt(precision);
+		auto y2 = roundf(calcY(rhs.sc) * sqrt(precision)) / sqrt(precision);
 		//return calcY(lhs.sc, lhs.x) > calcY(rhs.sc, rhs.x);
-		return calcY(lhs.sc) > calcY(rhs.sc);
-		//return y1 > y2;
+		//return calcY(lhs.sc) > calcY(rhs.sc);
+		return y1 > y2;
 	}
 
 	friend bool operator<(status_node const& lhs, status_node const& rhs) {
@@ -1603,6 +1601,10 @@ struct status_node {
 		auto y2 = roundf(calcY(rhs.sc) * precision) / precision;
 		//return calcY(lhs.sc) <= calcY(rhs.sc);
 		return y1 < y2;
+	}
+
+	friend double operator-(status_node const& lhs, status_node const& rhs) {
+		return calcY(lhs.sc) - calcY(rhs.sc);
 	}
 
 	friend bool operator<=(status_node const& lhs, status_node const& rhs) {
@@ -1795,6 +1797,175 @@ void n_log_n_sweepline2(InputInfo& info) {
 		info.testQueue.erase(p);
 	}
 	//statusTree->print();
+	auto end = std::chrono::system_clock::now();
+	info.milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+	info.nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+}
+
+
+template <class T>
+int BSearch(std::vector<T>* vec, T* value, int start, int end) {
+	while (start <= end) {
+		int index = (start + end) / 2;
+		if (vec->at(index) < *value) {
+			start = index + 1;
+		}
+		else if (vec->at(index) > *value) {
+			end = index - 1;
+		}
+		else{
+			return index;
+		}
+	}
+	if (start == 0) {
+		return 0;
+	}
+	else {
+		return end + 1;
+	}
+}
+
+void n_log_n_sweepline3(InputInfo& info) {
+	std::vector<status_node> *T = new std::vector<status_node>();
+	auto start = std::chrono::system_clock::now();
+	while (!info.testQueue.empty())
+	{
+		auto p = info.testQueue.begin();
+		sweepX = p->x;
+		if (p->isEdgePointCircle) {
+			if (p->isLeft) {
+				if (T->size() == 0) {
+					T->push_back(status_node{ p->parent->lowerCircle });
+					p->parent->lowerCircle->status_pos = 0;
+					T->push_back(status_node{ p->parent->upperCircle });
+					p->parent->upperCircle->status_pos = 1;
+				}
+				else {
+					auto node1 = new status_node {p->parent->upperCircle};
+					auto node2 = new status_node{ p->parent->lowerCircle };
+
+					int pos = BSearch(T, node2, 0, T->size() - 1);
+					T->insert(T->begin() + pos, *node2);
+					p->parent->lowerCircle->status_pos = pos;
+
+					pos += 1;
+					T->insert(T->begin() + pos, *node1);
+					p->parent->upperCircle->status_pos = pos;
+					for (auto i = pos + 1; i < T->size(); i++)
+					{
+						T->at(i).sc->status_pos = i;
+					}
+
+					int upperIndex = node1->sc->status_pos + 1;
+					int lowerIndex = node2->sc->status_pos - 1;
+					auto upper = !(upperIndex >= T->size()) ? &T->at(upperIndex) : nullptr;
+					auto lower = !(lowerIndex < 0) ? &T->at(lowerIndex) : nullptr;
+
+					if (lower != nullptr) {
+						calculateIntersectionPoints(lower->sc, node2->sc, &info, p->x);
+					}
+					if (upper != nullptr) {
+						calculateIntersectionPoints(node1->sc, upper->sc, &info, p->x);
+					}
+
+					for (size_t i = 0; i < T->size(); i++)
+					{
+						if (T->at(i).sc->status_pos != i) {
+							int YOLO = -1;
+						}
+					}
+				}
+			}
+			else {
+				if (abs(p->parent->upperCircle->status_pos - p->parent->lowerCircle->status_pos) != 1) {
+					int YOLO = -1;
+				}
+				auto node1 =T->at( p->parent->upperCircle->status_pos );
+				auto node2 = T->at( p->parent->lowerCircle->status_pos );
+
+
+				int pos = node1.sc->status_pos;
+				auto upper1 = !(pos + 1 >= T->size()) ? &T->at(pos + 1) : nullptr;
+				auto lower1 = !(pos - 2 < 0) ? &T->at(pos - 2) : nullptr;
+				//TODO optimize later
+				if (upper1 != nullptr && lower1 != nullptr) {
+					calculateIntersectionPoints(lower1->sc, upper1->sc, &info, p->x);
+				}
+
+				int pos2 = node2.sc->status_pos;
+				auto lower2 = !(pos2 - 1 < 0) ? &T->at(pos2 - 1) : nullptr;
+				auto upper2 = !(pos2 + 1 >= T->size()) ? &T->at(pos2 + 1) : nullptr;
+
+				int lowest = pos < pos2 ? pos : pos2;
+
+				if (upper2 != nullptr && lower2 != nullptr) {
+					calculateIntersectionPoints(lower2->sc, upper2->sc, &info, p->x);
+				}
+
+				if (pos > pos2) {
+					T->erase(T->begin() + pos);
+					T->erase(T->begin() + pos2);
+				}
+				else {
+					T->erase(T->begin() + pos2);
+					T->erase(T->begin() + pos);
+				}
+
+				for (auto i = lowest; i < T->size(); i++)
+				{
+					T->at(i).sc->status_pos = i;
+				}
+
+				for (size_t i = 0; i < T->size(); i++)
+				{
+					if (T->at(i).sc->status_pos != i) {
+						int YOLO = -1;
+					}
+				}
+			}
+		}
+		else if (p->isSnijpunt && !p->isRaakpunt) {
+			if (abs(p->hc2->status_pos - p->hc1->status_pos) != 1) {
+				int YOLO = -1;
+			}
+			status_node node1;
+			status_node node2;
+			if (p->hc1->status_pos > p->hc2->status_pos) {
+				node1 = T->at(p->hc2->status_pos);
+				node2 = T->at(p->hc1->status_pos);
+			}
+			else {
+				node1 = T->at(p->hc1->status_pos);
+				node2 = T->at(p->hc2->status_pos);
+			}
+
+			auto pos1 = node1.sc->status_pos;
+			auto lower = !(pos1 - 1 < 0) ? &T->at(pos1 - 1) : nullptr;
+			auto upper = !(pos1 + 2 >= T->size()) ? &T->at(pos1 + 2) : nullptr;
+			auto pos2 = pos1 + 1;
+			T->at(node1.sc->status_pos) = node2;
+			T->at(node2.sc->status_pos) = node1;
+
+			T->at(pos1).sc->status_pos = pos1;
+			
+			T->at(pos2).sc->status_pos = pos2;
+
+			if (upper!= nullptr) {
+				calculateIntersectionPoints(upper->sc, T->at(pos2).sc, &info, p->x);
+			}
+			if (lower != nullptr) {
+				calculateIntersectionPoints(T->at(pos1).sc, lower->sc, &info, p->x);
+			}
+
+			for (size_t i = 0; i < T->size(); i++)
+			{
+				if (T->at(i).sc->status_pos != i) {
+					int YOLO = -1;
+				}
+			}
+		}
+		info.testQueue.erase(p);
+	}
 	auto end = std::chrono::system_clock::now();
 	info.milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 	info.nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);

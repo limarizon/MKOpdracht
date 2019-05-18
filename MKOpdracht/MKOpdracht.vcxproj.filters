@@ -18,5 +18,8 @@
     <ClCompile Include="MKOpdracht.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="BSearch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
